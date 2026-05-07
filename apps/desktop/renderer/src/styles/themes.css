@@ -1,0 +1,91 @@
+/* JadeAPI Studio theme tokens.
+   Each theme overrides accent/background tints so the layout stays unchanged. */
+
+:root,
+[data-theme='jade-energetic'] {
+  --bg-app: #0a120d;
+  --bg-shell: #0d1611;
+  --bg-panel: #101a14;
+  --bg-elevated: #142019;
+  --bg-hover: #18261e;
+  --bg-active: #1d2f25;
+
+  --border-subtle: #1b2a22;
+  --border-strong: #243a2e;
+
+  --text-primary: #e6efe8;
+  --text-secondary: #97a89c;
+  --text-muted: #5e6f64;
+
+  --accent: #b7f088;
+  --accent-strong: #9fe870;
+  --accent-soft: rgba(183, 240, 136, 0.14);
+  --accent-ring: rgba(183, 240, 136, 0.32);
+
+  --method-get: #5fd47a;
+  --method-post: #f5c44a;
+  --method-put: #62a4ff;
+  --method-patch: #c084fc;
+  --method-del: #f87171;
+  --method-head: #2dd4bf;
+  --method-options: #94a3b8;
+
+  --status-2xx: #5fd47a;
+  --status-3xx: #38bdf8;
+  --status-4xx: #f5c44a;
+  --status-5xx: #f87171;
+
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme='jade-focused'] {
+  --bg-app: #07100a;
+  --bg-shell: #0a130d;
+  --bg-panel: #0d1711;
+  --bg-elevated: #111d16;
+  --bg-hover: #15241c;
+  --bg-active: #1a2c22;
+  --accent: #5fd47a;
+  --accent-strong: #4abe65;
+  --accent-soft: rgba(95, 212, 122, 0.12);
+  --accent-ring: rgba(95, 212, 122, 0.28);
+}
+
+[data-theme='jade-balanced'] {
+  --accent: #d6e8a3;
+  --accent-strong: #c5dc88;
+  --accent-soft: rgba(214, 232, 163, 0.14);
+  --accent-ring: rgba(214, 232, 163, 0.3);
+}
+
+[data-theme='jade-cream'] {
+  --bg-app: #14170f;
+  --bg-shell: #181c12;
+  --bg-panel: #1d2117;
+  --bg-elevated: #232719;
+  --accent: #f3ead0;
+  --accent-strong: #e6daab;
+  --accent-soft: rgba(243, 234, 208, 0.12);
+  --accent-ring: rgba(243, 234, 208, 0.3);
+}
+
+[data-theme='jade-coral'] {
+  --accent: #f88a72;
+  --accent-strong: #f06a55;
+  --accent-soft: rgba(248, 138, 114, 0.14);
+  --accent-ring: rgba(248, 138, 114, 0.3);
+}
+
+[data-theme='jade-clay'] {
+  --accent: #c89a78;
+  --accent-strong: #b1825f;
+  --accent-soft: rgba(200, 154, 120, 0.14);
+  --accent-ring: rgba(200, 154, 120, 0.3);
+}
+
+[data-theme='jade-lime'] {
+  --accent: #d2eb4a;
+  --accent-strong: #b9d630;
+  --accent-soft: rgba(210, 235, 74, 0.14);
+  --accent-ring: rgba(210, 235, 74, 0.3);
+}
