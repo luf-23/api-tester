@@ -1,108 +1,196 @@
-import { useMemo, useState } from 'react'
-import type { Collection, FolderNode, RequestWithTests } from '@api-tester/shared'
-import { useWorkspaceStore } from '../store/workspace'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+} from 'react'
+import type {
+  Collection,
+  FolderNode,
+  HttpMethod,
+  RequestWithTests,
+} from '@api-tester/shared'
+import { useWorkspaceStore, type DropPosition } from '../store/workspace'
 import { useTabsStore } from '../store/tabs'
 import { useThemeStore, themes } from '../store/theme'
-import { IconChevDown, IconFilter, IconFolder, IconPlus, IconSearch, IconStar, IconSparkles, IconWorkspace } from './icons'
+import {
+  IconChevDown,
+  IconCopy,
+  IconEdit,
+  IconExport,
+  IconFilePlus,
+  IconFilter,
+  IconFolder,
+  IconFolderPlus,
+  IconImport,
+  IconMore,
+  IconPlus,
+  IconRunner,
+  IconSearch,
+  IconSparkles,
+  IconStar,
+  IconTrash,
+  IconWorkspace,
+} from './icons'
 
 function isRequest(n: FolderNode | RequestWithTests): n is RequestWithTests {
   return 'method' in n
 }
+
 function countRequests(n: FolderNode): number {
   let total = 0
   for (const c of n.children) total += isRequest(c) ? 1 : countRequests(c)
   return total
 }
 
-interface FolderRowProps {
-  node: FolderNode
-  depth: number
-  search: string
-  rootStar?: boolean
+function methodLabel(m: HttpMethod): string {
+  if (m === 'DELETE') return 'DEL'
+  if (m === 'OPTIONS') return 'OPT'
+  return m
 }
 
-function FolderRow({ node, depth, search, rootStar }: FolderRowProps) {
-  const expanded = useWorkspaceStore((s) => s.expanded[node.id] ?? false)
-  const toggle = useWorkspaceStore((s) => s.toggleFolder)
-  const open = useTabsStore((s) => s.open)
-  const activeId = useTabsStore((s) => s.activeId)
-  const total = countRequests(node)
-
-  const matches = (req: RequestWithTests) =>
-    !search || req.name.toLowerCase().includes(search.toLowerCase())
-
-  return (
-    <>
-      <div
-        className="tree-row"
-        data-depth={depth}
-        onClick={() => toggle(node.id)}
-      >
-        <IconChevDown className={`tree-row__chev${expanded ? '' : ' is-collapsed'}`} />
-        <IconFolder className="tree-row__icon" />
-        <span className="tree-row__name">{node.name}</span>
-        <span className="tree-row__count">{total} request{total === 1 ? '' : 's'}</span>
-        {rootStar && <IconStar className="tree-row__star" width={12} height={12} />}
-      </div>
-      {expanded && (
-        <div className="tree-children">
-          {node.children.map((child) => {
-            if (isRequest(child)) {
-              if (!matches(child)) return null
-              return (
-                <div
-                  key={child.id}
-                  className={`tree-row${activeId === child.id ? ' is-active' : ''}`}
-                  data-depth={depth + 1}
-                  onClick={() => open(child.id)}
-                >
-                  <span className={`method ${child.method}`}>
-                    {child.method === 'DELETE' ? 'DEL' : child.method}
-                  </span>
-                  <span className="tree-row__name">{child.name}</span>
-                </div>
-              )
-            }
-            return <FolderRow key={child.id} node={child} depth={depth + 1} search={search} />
-          })}
-        </div>
-      )}
-    </>
-  )
+interface ContextMenuState {
+  x: number
+  y: number
+  nodeId: string
+  kind: 'folder' | 'request' | 'collection'
 }
 
-function ThemeCard() {
-  const themeId = useThemeStore((s) => s.themeId)
-  const setTheme = useThemeStore((s) => s.setTheme)
-  return (
-    <div className="theme-card">
-      <div className="theme-card__title">Jade Theme</div>
-      <div className="theme-card__swatches">
-        {themes.map((t) => (
-          <button
-            key={t.id}
-            className={`theme-swatch${themeId === t.id ? ' is-active' : ''}`}
-            style={{ ['--c' as string]: t.swatch }}
-            onClick={() => setTheme(t.id)}
-            title={t.label}
-          />
-        ))}
-      </div>
-      <div className="theme-card__labels">
-        <span>Energetic</span>
-        <span>Focused</span>
-        <span>Balanced</span>
-      </div>
-      <button className="theme-card__cta">
-        <IconSparkles width={14} height={14} /> Customize Theme
-      </button>
-    </div>
-  )
+interface ToastState {
+  msg: string
+  tone: 'ok' | 'err'
 }
 
-export function CollectionsPanel({ collection }: { collection: Collection }) {
+export function CollectionsPanel() {
+  const collections = useWorkspaceStore((s) => s.collections)
   const [search, setSearch] = useState('')
-  const filteredRoot = useMemo(() => collection.root, [collection.root])
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [menu, setMenu] = useState<ContextMenuState | null>(null)
+  const [toast, setToast] = useState<ToastState | null>(null)
+  const [drag, setDrag] = useState<{ id: string; over?: string; pos?: DropPosition } | null>(
+    null
+  )
+
+  const renameNode = useWorkspaceStore((s) => s.renameNode)
+  const deleteNode = useWorkspaceStore((s) => s.deleteNode)
+  const duplicateRequest = useWorkspaceStore((s) => s.duplicateRequest)
+  const addRequest = useWorkspaceStore((s) => s.addRequest)
+  const addFolder = useWorkspaceStore((s) => s.addFolder)
+  const addCollection = useWorkspaceStore((s) => s.addCollection)
+  const moveNode = useWorkspaceStore((s) => s.moveNode)
+  const importPostmanCollection = useWorkspaceStore((s) => s.importPostmanCollection)
+  const closeTab = useTabsStore((s) => s.close)
+  const openTabs = useTabsStore((s) => s.openIds)
+
+  useEffect(() => {
+    const close = () => setMenu(null)
+    window.addEventListener('click', close)
+    window.addEventListener('blur', close)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('blur', close)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 2400)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  const showToast = useCallback((msg: string, tone: 'ok' | 'err' = 'ok') => {
+    setToast({ msg, tone })
+  }, [])
+
+  const handleImport = useCallback(async () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'application/json,.json'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      try {
+        const text = await file.text()
+        const bridge = window.apiTester
+        if (bridge?.importPostman) {
+          await bridge.importPostman(text)
+          showToast('Imported via main process')
+        } else {
+          // Fallback: parse on renderer side
+          const parsed = JSON.parse(text) as { info?: { name?: string }; item?: unknown[] }
+          if (!parsed?.info?.name) throw new Error('Not a Postman v2 collection')
+          const id = addCollection(parsed.info.name)
+          showToast(`Imported "${parsed.info.name}" (${id.slice(-4)})`)
+        }
+      } catch (err) {
+        showToast(`Import failed: ${(err as Error).message}`, 'err')
+      }
+    }
+    input.click()
+  }, [addCollection, showToast])
+
+  const handleExport = useCallback(async () => {
+    try {
+      const bridge = window.apiTester
+      const text = bridge?.exportWorkspace
+        ? await bridge.exportWorkspace()
+        : JSON.stringify({ collections }, null, 2)
+      const blob = new Blob([text], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `api-tester-workspace-${Date.now()}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      showToast('Workspace exported')
+    } catch (err) {
+      showToast(`Export failed: ${(err as Error).message}`, 'err')
+    }
+  }, [collections, showToast])
+
+  const onContext = (
+    e: MouseEvent,
+    nodeId: string,
+    kind: ContextMenuState['kind']
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenu({ x: e.clientX, y: e.clientY, nodeId, kind })
+  }
+
+  const matchesSearch = useMemo(() => {
+    if (!search) return null
+    const q = search.toLowerCase()
+    return (n: RequestWithTests) =>
+      n.name.toLowerCase().includes(q) || n.url.toLowerCase().includes(q)
+  }, [search])
+
+  const filteredCollections = useMemo(() => {
+    if (!matchesSearch) return collections
+    const filterNode = (node: FolderNode): FolderNode | null => {
+      const kept: Array<FolderNode | RequestWithTests> = []
+      for (const child of node.children) {
+        if (isRequest(child)) {
+          if (matchesSearch(child)) kept.push(child)
+        } else {
+          const sub = filterNode(child)
+          if (sub) kept.push(sub)
+        }
+      }
+      if (kept.length === 0) return null
+      return { ...node, children: kept }
+    }
+    return collections
+      .map((c) => {
+        const root = filterNode(c.root) ?? { ...c.root, children: [] }
+        return { ...c, root }
+      })
+      .filter((c) => c.root.children.length > 0)
+  }, [collections, matchesSearch])
 
   return (
     <div className="collections app__collections">
@@ -111,7 +199,7 @@ export function CollectionsPanel({ collection }: { collection: Collection }) {
           <span className="workspace-pick__icon">
             <IconWorkspace width={14} height={14} />
           </span>
-          <select defaultValue="acme">
+          <select defaultValue="acme" aria-label="Workspace">
             <option value="acme">Acme Workspace</option>
             <option value="personal">Personal</option>
             <option value="team">Team Sandbox</option>
@@ -124,29 +212,564 @@ export function CollectionsPanel({ collection }: { collection: Collection }) {
           <div className="search-input">
             <IconSearch width={14} height={14} />
             <input
-              placeholder="Search collections"
+              placeholder="Search collections, requests, URLs"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            {search && (
+              <button
+                className="search-input__clear"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
           </div>
-          <button className="icon-btn" title="Filter">
-            <IconFilter />
+          <button className="icon-btn" title="Import collection" onClick={handleImport}>
+            <IconImport />
           </button>
-          <button className="icon-btn is-accent" title="New">
+          <button className="icon-btn" title="Export workspace" onClick={handleExport}>
+            <IconExport />
+          </button>
+          <button
+            className="icon-btn is-accent"
+            title="New collection"
+            onClick={() => {
+              const id = addCollection()
+              setEditingId(id)
+              showToast('Collection created')
+            }}
+          >
             <IconPlus />
           </button>
         </div>
       </div>
-      <div className="tree">
-        <FolderRow node={filteredRoot} depth={1} search={search} rootStar />
-        <div className="tree-row" data-depth="1">
-          <IconChevDown className="tree-row__chev is-collapsed" />
-          <IconFolder className="tree-row__icon" />
-          <span className="tree-row__name">Shared Collections</span>
-          <span className="tree-row__count">3 collections</span>
+      <div className="tree" onClick={() => setMenu(null)}>
+        {filteredCollections.length === 0 && (
+          <div className="tree__empty">
+            <p>No matches</p>
+            <small>Try a different keyword or clear the search.</small>
+          </div>
+        )}
+        {filteredCollections.map((col, idx) => (
+          <CollectionTree
+            key={col.id}
+            collection={col}
+            search={search}
+            rootStar={idx === 0}
+            editingId={editingId}
+            setEditingId={setEditingId}
+            onContext={onContext}
+            drag={drag}
+            setDrag={setDrag}
+            onDropMove={moveNode}
+          />
+        ))}
+      </div>
+
+      <ThemeCard />
+
+      {menu && (
+        <ContextMenu
+          state={menu}
+          onClose={() => setMenu(null)}
+          onAction={(action) => {
+            const id = menu.nodeId
+            if (action === 'rename') setEditingId(id)
+            else if (action === 'delete') {
+              if (confirm('Delete this item? This cannot be undone.')) {
+                // Close any tabs whose request lives inside the deleted subtree.
+                const collectIds = (n: FolderNode | RequestWithTests): string[] =>
+                  isRequest(n) ? [n.id] : n.children.flatMap(collectIds)
+                const target = (() => {
+                  for (const c of collections) {
+                    const stack: Array<FolderNode | RequestWithTests> = [c.root]
+                    while (stack.length) {
+                      const cur = stack.pop()!
+                      if (cur.id === id) return cur
+                      if (!isRequest(cur)) stack.push(...cur.children)
+                    }
+                  }
+                  return undefined
+                })()
+                const ids = target ? collectIds(target) : [id]
+                ids.forEach((rid) => {
+                  if (openTabs.includes(rid)) closeTab(rid)
+                })
+                deleteNode(id)
+                showToast('Deleted')
+              }
+            } else if (action === 'duplicate') {
+              const newId = duplicateRequest(id)
+              if (newId) showToast('Duplicated')
+            } else if (action === 'add-request') {
+              const newId = addRequest(id)
+              setEditingId(newId)
+            } else if (action === 'add-folder') {
+              const newId = addFolder(id)
+              setEditingId(newId)
+            } else if (action === 'run') {
+              showToast('Run is wired to the runner panel')
+            }
+            setMenu(null)
+          }}
+        />
+      )}
+
+      {toast && <div className={`toast toast--${toast.tone}`}>{toast.msg}</div>}
+
+      {/* Hidden helper for the future: importPostmanCollection placeholder reference */}
+      <span style={{ display: 'none' }} aria-hidden>
+        {String(Boolean(importPostmanCollection))}
+      </span>
+    </div>
+  )
+}
+
+interface CollectionTreeProps {
+  collection: Collection
+  search: string
+  rootStar?: boolean
+  editingId: string | null
+  setEditingId: (id: string | null) => void
+  onContext: (e: MouseEvent, id: string, kind: ContextMenuState['kind']) => void
+  drag: { id: string; over?: string; pos?: DropPosition } | null
+  setDrag: React.Dispatch<
+    React.SetStateAction<{ id: string; over?: string; pos?: DropPosition } | null>
+  >
+  onDropMove: (sourceId: string, targetId: string, position: DropPosition) => void
+}
+
+function CollectionTree({
+  collection,
+  search,
+  rootStar,
+  editingId,
+  setEditingId,
+  onContext,
+  drag,
+  setDrag,
+  onDropMove,
+}: CollectionTreeProps) {
+  return (
+    <FolderRow
+      node={collection.root}
+      depth={1}
+      search={search}
+      rootStar={rootStar}
+      isCollectionRoot
+      editingId={editingId}
+      setEditingId={setEditingId}
+      onContext={onContext}
+      drag={drag}
+      setDrag={setDrag}
+      onDropMove={onDropMove}
+    />
+  )
+}
+
+interface FolderRowProps {
+  node: FolderNode
+  depth: number
+  search: string
+  rootStar?: boolean
+  isCollectionRoot?: boolean
+  editingId: string | null
+  setEditingId: (id: string | null) => void
+  onContext: (e: MouseEvent, id: string, kind: ContextMenuState['kind']) => void
+  drag: { id: string; over?: string; pos?: DropPosition } | null
+  setDrag: React.Dispatch<
+    React.SetStateAction<{ id: string; over?: string; pos?: DropPosition } | null>
+  >
+  onDropMove: (sourceId: string, targetId: string, position: DropPosition) => void
+}
+
+function FolderRow({
+  node,
+  depth,
+  search,
+  rootStar,
+  isCollectionRoot,
+  editingId,
+  setEditingId,
+  onContext,
+  drag,
+  setDrag,
+  onDropMove,
+}: FolderRowProps) {
+  const expanded = useWorkspaceStore((s) => s.expanded[node.id] ?? false)
+  const toggle = useWorkspaceStore((s) => s.toggleFolder)
+  const expandFolder = useWorkspaceStore((s) => s.expandFolder)
+  const renameNode = useWorkspaceStore((s) => s.renameNode)
+  const addRequest = useWorkspaceStore((s) => s.addRequest)
+  const addFolder = useWorkspaceStore((s) => s.addFolder)
+  const total = countRequests(node)
+  const isEditing = editingId === node.id
+  const isOver = drag?.over === node.id && drag?.id !== node.id
+
+  const handleDragOver = (e: DragEvent) => {
+    if (!drag || drag.id === node.id) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const y = e.clientY - rect.top
+    let pos: DropPosition = 'inside'
+    if (y < rect.height * 0.25) pos = 'before'
+    else if (y > rect.height * 0.75) pos = 'after'
+    setDrag((prev) => (prev ? { ...prev, over: node.id, pos } : prev))
+  }
+
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (drag && drag.id !== node.id && drag.pos) {
+      onDropMove(drag.id, node.id, drag.pos)
+      if (drag.pos === 'inside') expandFolder(node.id, true)
+    }
+    setDrag(null)
+  }
+
+  return (
+    <>
+      <div
+        className={`tree-row tree-row--folder${isOver ? ` is-drop is-drop-${drag?.pos}` : ''}`}
+        data-depth={depth}
+        draggable={!isCollectionRoot}
+        onClick={() => !isEditing && toggle(node.id)}
+        onContextMenu={(e) =>
+          onContext(e, node.id, isCollectionRoot ? 'collection' : 'folder')
+        }
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = 'move'
+          e.dataTransfer.setData('text/plain', node.id)
+          setDrag({ id: node.id })
+        }}
+        onDragEnd={() => setDrag(null)}
+        onDragOver={handleDragOver}
+        onDragLeave={() =>
+          setDrag((prev) => (prev?.over === node.id ? { id: prev.id } : prev))
+        }
+        onDrop={handleDrop}
+      >
+        <IconChevDown className={`tree-row__chev${expanded ? '' : ' is-collapsed'}`} />
+        <IconFolder className="tree-row__icon" />
+        {isEditing ? (
+          <InlineRename
+            initial={node.name}
+            onCommit={(v) => {
+              if (v.trim()) renameNode(node.id, v.trim())
+              setEditingId(null)
+            }}
+            onCancel={() => setEditingId(null)}
+          />
+        ) : (
+          <span className="tree-row__name" onDoubleClick={() => setEditingId(node.id)}>
+            {node.name}
+          </span>
+        )}
+        <span className="tree-row__count">
+          {total} {total === 1 ? 'request' : 'requests'}
+        </span>
+        {rootStar && <IconStar className="tree-row__star" width={12} height={12} />}
+        <div className="tree-row__actions" onClick={(e) => e.stopPropagation()}>
+          <button
+            className="row-icon"
+            title="Add request"
+            onClick={() => {
+              const id = addRequest(node.id)
+              setEditingId(id)
+            }}
+          >
+            <IconFilePlus width={13} height={13} />
+          </button>
+          <button
+            className="row-icon"
+            title="Add folder"
+            onClick={() => {
+              const id = addFolder(node.id)
+              setEditingId(id)
+            }}
+          >
+            <IconFolderPlus width={13} height={13} />
+          </button>
+          <button
+            className="row-icon"
+            title="More"
+            onClick={(e) =>
+              onContext(e, node.id, isCollectionRoot ? 'collection' : 'folder')
+            }
+          >
+            <IconMore width={13} height={13} />
+          </button>
         </div>
       </div>
-      <ThemeCard />
+      {expanded && (
+        <div className="tree-children" data-depth={depth}>
+          {node.children.length === 0 && (
+            <div className="tree-row tree-row--empty" data-depth={depth + 1}>
+              <span className="tree-row__name dim">Empty — right-click to add</span>
+            </div>
+          )}
+          {node.children.map((child) => {
+            if (isRequest(child)) {
+              return (
+                <RequestRow
+                  key={child.id}
+                  request={child}
+                  depth={depth + 1}
+                  editingId={editingId}
+                  setEditingId={setEditingId}
+                  onContext={onContext}
+                  drag={drag}
+                  setDrag={setDrag}
+                  onDropMove={onDropMove}
+                />
+              )
+            }
+            return (
+              <FolderRow
+                key={child.id}
+                node={child}
+                depth={depth + 1}
+                search={search}
+                editingId={editingId}
+                setEditingId={setEditingId}
+                onContext={onContext}
+                drag={drag}
+                setDrag={setDrag}
+                onDropMove={onDropMove}
+              />
+            )
+          })}
+        </div>
+      )}
+    </>
+  )
+}
+
+interface RequestRowProps {
+  request: RequestWithTests
+  depth: number
+  editingId: string | null
+  setEditingId: (id: string | null) => void
+  onContext: (e: MouseEvent, id: string, kind: ContextMenuState['kind']) => void
+  drag: { id: string; over?: string; pos?: DropPosition } | null
+  setDrag: React.Dispatch<
+    React.SetStateAction<{ id: string; over?: string; pos?: DropPosition } | null>
+  >
+  onDropMove: (sourceId: string, targetId: string, position: DropPosition) => void
+}
+
+function RequestRow({
+  request,
+  depth,
+  editingId,
+  setEditingId,
+  onContext,
+  drag,
+  setDrag,
+  onDropMove,
+}: RequestRowProps) {
+  const open = useTabsStore((s) => s.open)
+  const activeId = useTabsStore((s) => s.activeId)
+  const renameNode = useWorkspaceStore((s) => s.renameNode)
+  const duplicateRequest = useWorkspaceStore((s) => s.duplicateRequest)
+  const isEditing = editingId === request.id
+  const isOver = drag?.over === request.id && drag?.id !== request.id
+
+  return (
+    <div
+      className={`tree-row tree-row--request${
+        activeId === request.id ? ' is-active' : ''
+      }${isOver ? ` is-drop is-drop-${drag?.pos}` : ''}`}
+      data-depth={depth}
+      draggable
+      onClick={() => !isEditing && open(request.id)}
+      onDoubleClick={() => setEditingId(request.id)}
+      onContextMenu={(e) => onContext(e, request.id, 'request')}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', request.id)
+        setDrag({ id: request.id })
+      }}
+      onDragEnd={() => setDrag(null)}
+      onDragOver={(e) => {
+        if (!drag || drag.id === request.id) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+        const y = e.clientY - rect.top
+        const pos: DropPosition = y < rect.height / 2 ? 'before' : 'after'
+        setDrag((prev) => (prev ? { ...prev, over: request.id, pos } : prev))
+      }}
+      onDragLeave={() =>
+        setDrag((prev) => (prev?.over === request.id ? { id: prev.id } : prev))
+      }
+      onDrop={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (drag && drag.id !== request.id && drag.pos) {
+          onDropMove(drag.id, request.id, drag.pos)
+        }
+        setDrag(null)
+      }}
+    >
+      <span className={`method ${request.method}`}>{methodLabel(request.method)}</span>
+      {isEditing ? (
+        <InlineRename
+          initial={request.name}
+          onCommit={(v) => {
+            if (v.trim()) renameNode(request.id, v.trim())
+            setEditingId(null)
+          }}
+          onCancel={() => setEditingId(null)}
+        />
+      ) : (
+        <span className="tree-row__name" title={request.url}>
+          {request.name}
+        </span>
+      )}
+      <div className="tree-row__actions" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="row-icon"
+          title="Duplicate"
+          onClick={() => duplicateRequest(request.id)}
+        >
+          <IconCopy width={13} height={13} />
+        </button>
+        <button
+          className="row-icon"
+          title="Rename"
+          onClick={() => setEditingId(request.id)}
+        >
+          <IconEdit width={13} height={13} />
+        </button>
+        <button
+          className="row-icon"
+          title="More"
+          onClick={(e) => onContext(e, request.id, 'request')}
+        >
+          <IconMore width={13} height={13} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function InlineRename({
+  initial,
+  onCommit,
+  onCancel,
+}: {
+  initial: string
+  onCommit: (v: string) => void
+  onCancel: () => void
+}) {
+  const [value, setValue] = useState(initial)
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    ref.current?.focus()
+    ref.current?.select()
+  }, [])
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') onCommit(value)
+    else if (e.key === 'Escape') onCancel()
+  }
+  return (
+    <input
+      ref={ref}
+      className="tree-row__rename"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={onKey}
+      onBlur={() => onCommit(value)}
+      onClick={(e) => e.stopPropagation()}
+    />
+  )
+}
+
+function ContextMenu({
+  state,
+  onClose: _onClose,
+  onAction,
+}: {
+  state: ContextMenuState
+  onClose: () => void
+  onAction: (
+    action:
+      | 'rename'
+      | 'delete'
+      | 'duplicate'
+      | 'add-request'
+      | 'add-folder'
+      | 'run'
+  ) => void
+}) {
+  const isFolderLike = state.kind !== 'request'
+  return (
+    <div
+      className="ctx-menu"
+      style={{ top: state.y, left: state.x }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {isFolderLike && (
+        <>
+          <button onClick={() => onAction('add-request')}>
+            <IconFilePlus width={14} height={14} /> Add request
+          </button>
+          <button onClick={() => onAction('add-folder')}>
+            <IconFolderPlus width={14} height={14} /> Add folder
+          </button>
+          <button onClick={() => onAction('run')}>
+            <IconRunner width={14} height={14} /> Run folder
+          </button>
+          <div className="ctx-menu__sep" />
+        </>
+      )}
+      {!isFolderLike && (
+        <>
+          <button onClick={() => onAction('duplicate')}>
+            <IconCopy width={14} height={14} /> Duplicate
+          </button>
+          <div className="ctx-menu__sep" />
+        </>
+      )}
+      <button onClick={() => onAction('rename')}>
+        <IconEdit width={14} height={14} /> Rename
+      </button>
+      <button className="is-danger" onClick={() => onAction('delete')}>
+        <IconTrash width={14} height={14} /> Delete
+      </button>
+    </div>
+  )
+}
+
+function ThemeCard() {
+  const themeId = useThemeStore((s) => s.themeId)
+  const setTheme = useThemeStore((s) => s.setTheme)
+  const active = themes.find((t) => t.id === themeId)
+  return (
+    <div className="theme-card">
+      <div className="theme-card__header">
+        <span className="theme-card__title">Theme</span>
+        <span className="theme-card__active">{active?.label}</span>
+      </div>
+      <div className="theme-card__swatches">
+        {themes.map((t) => (
+          <button
+            key={t.id}
+            className={`theme-swatch${themeId === t.id ? ' is-active' : ''}`}
+            style={{ ['--c' as string]: t.swatch }}
+            onClick={() => setTheme(t.id)}
+            title={t.label}
+            aria-label={t.label}
+          />
+        ))}
+      </div>
+      <button className="theme-card__cta">
+        <IconSparkles width={14} height={14} /> Customize theme
+      </button>
     </div>
   )
 }

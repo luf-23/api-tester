@@ -1,27 +1,119 @@
-/* JadeAPI Studio theme tokens.
-   Each theme overrides accent/background tints so the layout stays unchanged. */
+/* JadeAPI Studio — light-first theme tokens.
+   Each theme overrides accent/background tints; layout is unaffected. */
 
 :root,
-[data-theme='jade-energetic'] {
+[data-theme='jade-light'] {
+  --bg-app: #f3f6ee;
+  --bg-shell: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-elevated: #f7faf2;
+  --bg-hover: #ecf2e0;
+  --bg-active: #e0ecca;
+
+  --border-subtle: #e5e9dd;
+  --border-strong: #d2d8c5;
+
+  --text-primary: #1a211c;
+  --text-secondary: #5c6660;
+  --text-muted: #909a8e;
+
+  --accent: #6fb24c;
+  --accent-strong: #5a9d38;
+  --accent-soft: rgba(111, 178, 76, 0.16);
+  --accent-ring: rgba(111, 178, 76, 0.32);
+
+  --method-get: #2e9e5a;
+  --method-post: #c47a00;
+  --method-put: #2d6cc0;
+  --method-patch: #8b5cf6;
+  --method-del: #d6453b;
+  --method-head: #0d9488;
+  --method-options: #6b7280;
+
+  --status-2xx: #2e9e5a;
+  --status-3xx: #2d6cc0;
+  --status-4xx: #c47a00;
+  --status-5xx: #d6453b;
+
+  --tok-str: #b26b2a;
+  --tok-num: #1f6fb5;
+  --tok-bool: #7a4dc7;
+
+  --shadow-panel: 0 1px 2px rgba(20, 32, 24, 0.04), 0 8px 24px rgba(20, 32, 24, 0.06);
+
+  --on-accent: #ffffff;
+  color-scheme: light;
+}
+
+[data-theme='jade-cream'] {
+  --bg-app: #f6f1e3;
+  --bg-shell: #fffdf6;
+  --bg-panel: #fffdf6;
+  --bg-elevated: #f8f3e3;
+  --bg-hover: #efe7cd;
+  --bg-active: #e7dcb6;
+  --border-subtle: #e7dfc7;
+  --border-strong: #cfc6a8;
+  --accent: #b08a3e;
+  --accent-strong: #94722d;
+  --accent-soft: rgba(176, 138, 62, 0.16);
+  --accent-ring: rgba(176, 138, 62, 0.3);
+  --on-accent: #fffdf6;
+}
+
+[data-theme='jade-coral'] {
+  --accent: #d65a3a;
+  --accent-strong: #b94625;
+  --accent-soft: rgba(214, 90, 58, 0.16);
+  --accent-ring: rgba(214, 90, 58, 0.3);
+  --on-accent: #ffffff;
+}
+
+[data-theme='jade-clay'] {
+  --bg-app: #f4eee5;
+  --bg-shell: #fffaf3;
+  --bg-panel: #fffaf3;
+  --bg-elevated: #f6efe2;
+  --accent: #a26b3f;
+  --accent-strong: #87572d;
+  --accent-soft: rgba(162, 107, 63, 0.16);
+  --accent-ring: rgba(162, 107, 63, 0.3);
+  --on-accent: #fffaf3;
+}
+
+[data-theme='jade-lime'] {
+  --accent: #7fbb1e;
+  --accent-strong: #649c0e;
+  --accent-soft: rgba(127, 187, 30, 0.16);
+  --accent-ring: rgba(127, 187, 30, 0.3);
+  --on-accent: #14210a;
+}
+
+[data-theme='jade-sage'] {
+  --bg-app: #eef2e6;
+  --accent: #7d9c5b;
+  --accent-strong: #607c43;
+  --accent-soft: rgba(125, 156, 91, 0.16);
+  --accent-ring: rgba(125, 156, 91, 0.3);
+  --on-accent: #ffffff;
+}
+
+[data-theme='jade-dark'] {
   --bg-app: #0a120d;
   --bg-shell: #0d1611;
   --bg-panel: #101a14;
   --bg-elevated: #142019;
   --bg-hover: #18261e;
   --bg-active: #1d2f25;
-
-  --border-subtle: #1b2a22;
-  --border-strong: #243a2e;
-
+  --border-subtle: #1f2a22;
+  --border-strong: #2c3a30;
   --text-primary: #e6efe8;
   --text-secondary: #97a89c;
   --text-muted: #5e6f64;
-
   --accent: #b7f088;
   --accent-strong: #9fe870;
   --accent-soft: rgba(183, 240, 136, 0.14);
   --accent-ring: rgba(183, 240, 136, 0.32);
-
   --method-get: #5fd47a;
   --method-post: #f5c44a;
   --method-put: #62a4ff;
@@ -29,63 +121,13 @@
   --method-del: #f87171;
   --method-head: #2dd4bf;
   --method-options: #94a3b8;
-
   --status-2xx: #5fd47a;
   --status-3xx: #38bdf8;
   --status-4xx: #f5c44a;
   --status-5xx: #f87171;
-
-  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
-}
-
-[data-theme='jade-focused'] {
-  --bg-app: #07100a;
-  --bg-shell: #0a130d;
-  --bg-panel: #0d1711;
-  --bg-elevated: #111d16;
-  --bg-hover: #15241c;
-  --bg-active: #1a2c22;
-  --accent: #5fd47a;
-  --accent-strong: #4abe65;
-  --accent-soft: rgba(95, 212, 122, 0.12);
-  --accent-ring: rgba(95, 212, 122, 0.28);
-}
-
-[data-theme='jade-balanced'] {
-  --accent: #d6e8a3;
-  --accent-strong: #c5dc88;
-  --accent-soft: rgba(214, 232, 163, 0.14);
-  --accent-ring: rgba(214, 232, 163, 0.3);
-}
-
-[data-theme='jade-cream'] {
-  --bg-app: #14170f;
-  --bg-shell: #181c12;
-  --bg-panel: #1d2117;
-  --bg-elevated: #232719;
-  --accent: #f3ead0;
-  --accent-strong: #e6daab;
-  --accent-soft: rgba(243, 234, 208, 0.12);
-  --accent-ring: rgba(243, 234, 208, 0.3);
-}
-
-[data-theme='jade-coral'] {
-  --accent: #f88a72;
-  --accent-strong: #f06a55;
-  --accent-soft: rgba(248, 138, 114, 0.14);
-  --accent-ring: rgba(248, 138, 114, 0.3);
-}
-
-[data-theme='jade-clay'] {
-  --accent: #c89a78;
-  --accent-strong: #b1825f;
-  --accent-soft: rgba(200, 154, 120, 0.14);
-  --accent-ring: rgba(200, 154, 120, 0.3);
-}
-
-[data-theme='jade-lime'] {
-  --accent: #d2eb4a;
-  --accent-strong: #b9d630;
-  --accent-soft: rgba(210, 235, 74, 0.14);
-  --accent-ring: rgba(210, 235, 74, 0.3);
+  --tok-str: #f5d684;
+  --tok-num: #82c8ff;
+  --tok-bool: #c084fc;
+  --on-accent: #0a120d;
+  color-scheme: dark;
 }

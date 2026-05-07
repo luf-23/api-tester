@@ -179,3 +179,51 @@ export const IconWorkspace = (p: IconProps) => (
     <rect x="14" y="14" width="7" height="7" rx="1.5" />
   </svg>
 )
+export const IconImport = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M12 3v12" />
+    <path d="m7 10 5 5 5-5" />
+    <path d="M4 21h16" />
+  </svg>
+)
+export const IconExport = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M12 21V9" />
+    <path d="m7 14 5-5 5 5" />
+    <path d="M4 3h16" />
+  </svg>
+)
+export const IconFolderPlus = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <path d="M12 11v6M9 14h6" />
+  </svg>
+)
+export const IconFilePlus = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5" />
+    <path d="M12 12v6M9 15h6" />
+  </svg>
+)
+export const IconCopy = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+  </svg>
+)
+export const IconRefresh = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M3 12a9 9 0 0 1 15.5-6.3L21 8" />
+    <path d="M21 3v5h-5" />
+    <path d="M21 12a9 9 0 0 1-15.5 6.3L3 16" />
+    <path d="M3 21v-5h5" />
+  </svg>
+)
+export const IconKey = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="8" cy="14" r="4" />
+    <path d="m11 11 9-9" />
+    <path d="m17 5 3 3M15 7l3 3" />
+  </svg>
+)

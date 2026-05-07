@@ -5,12 +5,11 @@ import { TopBar } from './components/TopBar'
 import { RequestPanel } from './components/RequestPanel'
 import { ResponsePanel } from './components/ResponsePanel'
 import { StatusBar } from './components/StatusBar'
-import { useWorkspaceStore } from './store/workspace'
 import { useTabsStore } from './store/tabs'
+import { useWorkspaceStore } from './store/workspace'
 import { useThemeStore } from './store/theme'
 
 export default function App() {
-  const collections = useWorkspaceStore((s) => s.collections)
   const activeId = useTabsStore((s) => s.activeId)
   const getRequest = useWorkspaceStore((s) => s.getRequest)
   const themeId = useThemeStore((s) => s.themeId)
@@ -24,7 +23,7 @@ export default function App() {
   return (
     <div className="app">
       <Sidebar />
-      <CollectionsPanel collection={collections[0]} />
+      <CollectionsPanel />
       <main className="app__main">
         <TopBar />
         {activeRequest ? (
