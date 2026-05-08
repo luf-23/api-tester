@@ -8,6 +8,10 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@api-tester/shared": "workspace:*"
+    "@api-tester/shared": "workspace:*",
+    "better-sqlite3": "^11.8.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12"
   }
 }

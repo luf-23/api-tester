@@ -6,6 +6,8 @@ out
 release
 *.local
 .DS_Store
+# Local SQLite (dev: apps/desktop/api-tester-data/, see main resolveDataDirectory)
+apps/desktop/api-tester-data/
 .env
 .env.*
 !.env.example

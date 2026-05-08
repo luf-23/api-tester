@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -37,6 +38,16 @@ import {
 
 function isRequest(n: FolderNode | RequestWithTests): n is RequestWithTests {
   return 'method' in n
+}
+
+/** Used while search is active so rows targeted by inline rename are not dropped from the tree. */
+function treeContainsId(node: FolderNode | RequestWithTests, id: string): boolean {
+  if (node.id === id) return true
+  if (isRequest(node)) return false
+  for (const ch of node.children) {
+    if (treeContainsId(ch, id)) return true
+  }
+  return false
 }
 
 function countRequests(n: FolderNode): number {
@@ -186,11 +197,18 @@ export function CollectionsPanel() {
     }
     return collections
       .map((c) => {
-        const root = filterNode(c.root) ?? { ...c.root, children: [] }
+        const pinFullTree = editingId != null && treeContainsId(c.root, editingId)
+        const root = pinFullTree
+          ? c.root
+          : filterNode(c.root) ?? { ...c.root, children: [] }
         return { ...c, root }
       })
-      .filter((c) => c.root.children.length > 0)
-  }, [collections, matchesSearch])
+      .filter(
+        (c) =>
+          c.root.children.length > 0 ||
+          (editingId != null && treeContainsId(c.root, editingId))
+      )
+  }, [collections, matchesSearch, editingId])
 
   return (
     <div className="collections">
@@ -228,8 +246,11 @@ export function CollectionsPanel() {
             title={ui.collections.newCollectionTitle}
             onClick={() => {
               const id = addCollection()
-              setEditingId(id)
               showToast(ui.collections.toastCreated)
+              // Defer edit mode until after the button finishes its focus cycle (Electron / Chromium).
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => setEditingId(id))
+              })
             }}
           >
             <IconPlus />
@@ -251,6 +272,7 @@ export function CollectionsPanel() {
             rootStar={idx === 0}
             editingId={editingId}
             setEditingId={setEditingId}
+            showToast={showToast}
             onContext={onContext}
             drag={drag}
             setDrag={setDrag}
@@ -317,6 +339,7 @@ interface CollectionTreeProps {
   rootStar?: boolean
   editingId: string | null
   setEditingId: (id: string | null) => void
+  showToast: (msg: string, tone?: 'ok' | 'err') => void
   onContext: (e: MouseEvent, id: string, kind: ContextMenuState['kind']) => void
   drag: { id: string; over?: string; pos?: DropPosition } | null
   setDrag: React.Dispatch<
@@ -331,6 +354,7 @@ function CollectionTree({
   rootStar,
   editingId,
   setEditingId,
+  showToast,
   onContext,
   drag,
   setDrag,
@@ -345,6 +369,7 @@ function CollectionTree({
       isCollectionRoot
       editingId={editingId}
       setEditingId={setEditingId}
+      showToast={showToast}
       onContext={onContext}
       drag={drag}
       setDrag={setDrag}
@@ -361,6 +386,7 @@ interface FolderRowProps {
   isCollectionRoot?: boolean
   editingId: string | null
   setEditingId: (id: string | null) => void
+  showToast: (msg: string, tone?: 'ok' | 'err') => void
   onContext: (e: MouseEvent, id: string, kind: ContextMenuState['kind']) => void
   drag: { id: string; over?: string; pos?: DropPosition } | null
   setDrag: React.Dispatch<
@@ -377,6 +403,7 @@ function FolderRow({
   isCollectionRoot,
   editingId,
   setEditingId,
+  showToast,
   onContext,
   drag,
   setDrag,
@@ -417,10 +444,33 @@ function FolderRow({
   return (
     <>
       <div
-        className={`tree-row tree-row--folder${isOver ? ` is-drop is-drop-${drag?.pos}` : ''}`}
+        className={`tree-row tree-row--folder${isEditing ? ' is-renaming' : ''}${
+          isOver ? ` is-drop is-drop-${drag?.pos}` : ''
+        }`}
         data-depth={depth}
         draggable={!isCollectionRoot}
-        onClick={() => !isEditing && toggle(node.id)}
+        onClick={(e) => {
+          if (isEditing) {
+            const el = e.target as HTMLElement
+            if (el.closest('.tree-row__actions')) return
+            const row = e.currentTarget as HTMLElement
+            const inp = row.querySelector<HTMLInputElement>('input.tree-row__rename')
+            if (el.closest('.tree-row__chev') && inp) {
+              const t = inp.value.trim()
+              if (!t) setEditingId(null)
+              else if (!renameNode(node.id, t)) {
+                if (isCollectionRoot) showToast(ui.collections.collectionNameExists, 'err')
+                return
+              } else setEditingId(null)
+              toggle(node.id)
+              return
+            }
+            inp?.focus({ preventScroll: true })
+            inp?.select()
+            return
+          }
+          toggle(node.id)
+        }}
         onContextMenu={(e) =>
           onContext(e, node.id, isCollectionRoot ? 'collection' : 'folder')
         }
@@ -442,18 +492,21 @@ function FolderRow({
           <InlineRename
             initial={node.name}
             onCommit={(v) => {
-              if (v.trim()) renameNode(node.id, v.trim())
+              const t = v.trim()
+              if (!t) {
+                setEditingId(null)
+                return
+              }
+              if (!renameNode(node.id, t)) {
+                if (isCollectionRoot) showToast(ui.collections.collectionNameExists, 'err')
+                return
+              }
               setEditingId(null)
             }}
             onCancel={() => setEditingId(null)}
           />
         ) : (
-          <span
-            className="tree-row__name"
-            onDoubleClick={isCollectionRoot ? undefined : () => setEditingId(node.id)}
-          >
-            {node.name}
-          </span>
+          <span className="tree-row__name">{node.name}</span>
         )}
         <span className="tree-row__count">
           {total === 1 ? ui.collections.requestsCountOne : ui.collections.requestsCountMany(total)}
@@ -522,6 +575,7 @@ function FolderRow({
                 search={search}
                 editingId={editingId}
                 setEditingId={setEditingId}
+                showToast={showToast}
                 onContext={onContext}
                 drag={drag}
                 setDrag={setDrag}
@@ -567,13 +621,24 @@ function RequestRow({
 
   return (
     <div
-      className={`tree-row tree-row--request${
+      className={`tree-row tree-row--request${isEditing ? ' is-renaming' : ''}${
         activeId === request.id ? ' is-active' : ''
       }${isOver ? ` is-drop is-drop-${drag?.pos}` : ''}`}
       data-depth={depth}
       draggable
-      onClick={() => !isEditing && open(request.id)}
-      onDoubleClick={() => setEditingId(request.id)}
+      onClick={(e) => {
+        if (isEditing) {
+          const el = e.target as HTMLElement
+          if (el.closest('.tree-row__actions')) return
+          const inp = (e.currentTarget as HTMLElement).querySelector<HTMLInputElement>(
+            'input.tree-row__rename'
+          )
+          inp?.focus({ preventScroll: true })
+          inp?.select()
+          return
+        }
+        open(request.id)
+      }}
       onContextMenu={(e) => onContext(e, request.id, 'request')}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = 'move'
@@ -655,9 +720,17 @@ function InlineRename({
 }) {
   const [value, setValue] = useState(initial)
   const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    ref.current?.focus()
-    ref.current?.select()
+  useLayoutEffect(() => {
+    const focusInput = () => {
+      const el = ref.current
+      if (!el) return
+      el.focus({ preventScroll: true })
+      el.select()
+    }
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(focusInput)
+    })
+    return () => cancelAnimationFrame(id)
   }, [])
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') onCommit(value)
@@ -667,6 +740,7 @@ function InlineRename({
     <input
       ref={ref}
       className="tree-row__rename"
+      autoFocus
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={onKey}

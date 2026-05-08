@@ -1,4 +1,3 @@
-import fs from 'node:fs'
 import type {
   Collection,
   Environment,
@@ -7,13 +6,7 @@ import type {
 } from '@api-tester/shared'
 import type { StorageContext } from './db'
 
-interface WorkspaceData {
-  meta: WorkspaceMeta
-  environments: Environment[]
-  collections: Collection[]
-  history: HistoryEntry[]
-}
-
+const THEME_KEY = 'theme_id'
 const DEFAULT_WS_ID = 'default'
 
 export class WorkspaceStore {
@@ -21,98 +14,168 @@ export class WorkspaceStore {
     this.ensureDefaultWorkspace()
   }
 
+  close(): void {
+    this.ctx.db.close()
+  }
+
   private ensureDefaultWorkspace(): void {
-    const data = this.readData()
-    if (!data.meta?.id) {
-      data.meta = { id: DEFAULT_WS_ID, name: 'Default' }
-      this.writeData(data)
+    const meta = this.readMeta()
+    if (!meta?.id) {
+      this.writeMetaRow({ id: DEFAULT_WS_ID, name: 'Default' })
     }
   }
 
-  private readData(): WorkspaceData {
-    const text = fs.readFileSync(this.ctx.filePath, 'utf-8')
-    const parsed = JSON.parse(text) as Partial<WorkspaceData>
-    return {
-      meta: parsed.meta ?? { id: DEFAULT_WS_ID, name: 'Default' },
-      environments: parsed.environments ?? [],
-      collections: parsed.collections ?? [],
-      history: parsed.history ?? [],
+  private readMeta(): WorkspaceMeta {
+    const row = this.ctx.db.prepare(`SELECT json FROM workspace_meta LIMIT 1`).get() as
+      | { json: string }
+      | undefined
+    if (!row) return { id: DEFAULT_WS_ID, name: 'Default' }
+    try {
+      const m = JSON.parse(row.json) as WorkspaceMeta
+      return m?.id ? m : { id: DEFAULT_WS_ID, name: 'Default' }
+    } catch {
+      return { id: DEFAULT_WS_ID, name: 'Default' }
     }
   }
 
-  private writeData(data: WorkspaceData): void {
-    fs.writeFileSync(this.ctx.filePath, JSON.stringify(data, null, 2), 'utf-8')
+  private writeMetaRow(meta: WorkspaceMeta): void {
+    this.ctx.db.prepare(`DELETE FROM workspace_meta`).run()
+    this.ctx.db.prepare(`INSERT INTO workspace_meta (id, json) VALUES (?, ?)`).run(
+      meta.id,
+      JSON.stringify(meta)
+    )
+  }
+
+  getThemeId(): string | undefined {
+    const row = this.ctx.db.prepare(`SELECT value FROM kv_settings WHERE key = ?`).get(THEME_KEY) as
+      | { value: string }
+      | undefined
+    const v = row?.value?.trim()
+    return v || undefined
+  }
+
+  setThemeId(themeId: string): void {
+    this.ctx.db
+      .prepare(
+        `INSERT INTO kv_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+      )
+      .run(THEME_KEY, themeId)
   }
 
   getWorkspaceMeta(): WorkspaceMeta {
-    return this.readData().meta
+    return structuredClone(this.readMeta())
   }
 
-  saveWorkspaceMeta(partial: Partial<Pick<WorkspaceMeta, 'name' | 'activeEnvironmentId' | 'mockPort'>>): void {
-    const data = this.readData()
-    data.meta = { ...data.meta, ...partial }
-    this.writeData(data)
+  saveWorkspaceMeta(
+    partial: Partial<Pick<WorkspaceMeta, 'name' | 'activeEnvironmentId' | 'mockPort'>>
+  ): void {
+    const meta = { ...this.readMeta(), ...partial }
+    this.writeMetaRow(meta)
   }
 
   listEnvironments(): Environment[] {
-    return this.readData().environments
+    const rows = this.ctx.db
+      .prepare(`SELECT json FROM environments ORDER BY sort_index ASC, id ASC`)
+      .all() as { json: string }[]
+    return rows.map((r) => structuredClone(JSON.parse(r.json) as Environment))
   }
 
   saveEnvironment(env: Environment): void {
-    const data = this.readData()
-    const idx = data.environments.findIndex((e) => e.id === env.id)
-    if (idx >= 0) data.environments[idx] = env
-    else data.environments.push(env)
-    this.writeData(data)
+    const envs = this.listEnvironments()
+    const idx = envs.findIndex((e) => e.id === env.id)
+    const next = idx >= 0 ? [...envs.slice(0, idx), env, ...envs.slice(idx + 1)] : [...envs, env]
+    const tx = this.ctx.db.transaction(() => {
+      this.ctx.db.prepare(`DELETE FROM environments`).run()
+      const ins = this.ctx.db.prepare(
+        `INSERT INTO environments (id, json, sort_index) VALUES (?, ?, ?)`
+      )
+      next.forEach((e, i) => ins.run(e.id, JSON.stringify(e), i))
+    })
+    tx()
   }
 
   deleteEnvironment(id: string): void {
-    const data = this.readData()
-    data.environments = data.environments.filter((e) => e.id !== id)
-    this.writeData(data)
+    const next = this.listEnvironments().filter((e) => e.id !== id)
+    const tx = this.ctx.db.transaction(() => {
+      this.ctx.db.prepare(`DELETE FROM environments`).run()
+      const ins = this.ctx.db.prepare(
+        `INSERT INTO environments (id, json, sort_index) VALUES (?, ?, ?)`
+      )
+      next.forEach((e, i) => ins.run(e.id, JSON.stringify(e), i))
+    })
+    tx()
   }
 
   listCollections(): Array<{ id: string; name: string }> {
-    return this.readData().collections.map((c) => ({ id: c.id, name: c.name }))
+    const rows = this.ctx.db
+      .prepare(`SELECT json FROM collections ORDER BY sort_index ASC, id ASC`)
+      .all() as { json: string }[]
+    return rows.map((r) => {
+      const c = JSON.parse(r.json) as Collection
+      return { id: c.id, name: c.name }
+    })
   }
 
   getAllCollections(): Collection[] {
-    return this.readData().collections.map((c) => structuredClone(c))
+    const rows = this.ctx.db
+      .prepare(`SELECT json FROM collections ORDER BY sort_index ASC, id ASC`)
+      .all() as { json: string }[]
+    return rows.map((r) => structuredClone(JSON.parse(r.json) as Collection))
   }
 
   saveAllCollections(collections: Collection[]): void {
-    const data = this.readData()
-    data.collections = collections.map((c) => structuredClone(c))
-    this.writeData(data)
+    const tx = this.ctx.db.transaction(() => {
+      this.ctx.db.prepare(`DELETE FROM collections`).run()
+      const ins = this.ctx.db.prepare(
+        `INSERT INTO collections (id, json, sort_index) VALUES (?, ?, ?)`
+      )
+      collections.forEach((c, i) => ins.run(c.id, JSON.stringify(structuredClone(c)), i))
+    })
+    tx()
   }
 
   getCollection(id: string): Collection | undefined {
-    return this.readData().collections.find((c) => c.id === id)
+    const row = this.ctx.db.prepare(`SELECT json FROM collections WHERE id = ?`).get(id) as
+      | { json: string }
+      | undefined
+    if (!row) return undefined
+    return structuredClone(JSON.parse(row.json) as Collection)
   }
 
   saveCollection(col: Collection): void {
-    const data = this.readData()
-    const idx = data.collections.findIndex((c) => c.id === col.id)
-    if (idx >= 0) data.collections[idx] = col
-    else data.collections.push(col)
-    this.writeData(data)
+    const cols = this.getAllCollections()
+    const idx = cols.findIndex((c) => c.id === col.id)
+    const next = idx >= 0 ? [...cols.slice(0, idx), col, ...cols.slice(idx + 1)] : [...cols, col]
+    this.saveAllCollections(next)
   }
 
   deleteCollection(id: string): void {
-    const data = this.readData()
-    data.collections = data.collections.filter((c) => c.id !== id)
-    this.writeData(data)
+    const next = this.getAllCollections().filter((c) => c.id !== id)
+    this.saveAllCollections(next)
   }
 
   addHistory(entry: HistoryEntry): void {
-    const data = this.readData()
-    data.history.unshift(entry)
-    data.history = data.history.slice(0, 500)
-    this.writeData(data)
+    const rows = this.ctx.db
+      .prepare(`SELECT json FROM history ORDER BY created_at DESC LIMIT 499`)
+      .all() as { json: string }[]
+    const tx = this.ctx.db.transaction(() => {
+      this.ctx.db.prepare(`DELETE FROM history`).run()
+      const ins = this.ctx.db.prepare(`INSERT INTO history (id, created_at, json) VALUES (?, ?, ?)`)
+      ins.run(entry.id, entry.createdAt, JSON.stringify(entry))
+      for (const r of rows) {
+        const h = JSON.parse(r.json) as HistoryEntry
+        ins.run(h.id, h.createdAt, r.json)
+      }
+    })
+    tx()
   }
 
   listHistory(limit = 100): HistoryEntry[] {
-    return this.readData().history.slice(0, limit)
+    const rows = this.ctx.db
+      .prepare(`SELECT json FROM history ORDER BY created_at DESC LIMIT ?`)
+      .all(limit) as { json: string }[]
+    return rows.map((r) => structuredClone(JSON.parse(r.json) as HistoryEntry))
   }
 
   exportAll(): {
@@ -121,7 +184,12 @@ export class WorkspaceStore {
     collections: Collection[]
     history: HistoryEntry[]
   } {
-    return this.readData()
+    return {
+      meta: this.getWorkspaceMeta(),
+      environments: this.listEnvironments(),
+      collections: this.getAllCollections(),
+      history: this.listHistory(500),
+    }
   }
 
   importBundle(dataIn: {
@@ -129,13 +197,32 @@ export class WorkspaceStore {
     environments: Environment[]
     collections: Collection[]
   }): void {
-    const cur = this.readData()
-    const next: WorkspaceData = {
-      meta: dataIn.meta,
-      environments: dataIn.environments,
-      collections: dataIn.collections,
-      history: cur.history,
-    }
-    this.writeData(next)
+    const historyRows = this.ctx.db
+      .prepare(`SELECT json FROM history ORDER BY created_at DESC`)
+      .all() as { json: string }[]
+
+    const tx = this.ctx.db.transaction(() => {
+      this.writeMetaRow(dataIn.meta)
+
+      this.ctx.db.prepare(`DELETE FROM environments`).run()
+      const insEnv = this.ctx.db.prepare(
+        `INSERT INTO environments (id, json, sort_index) VALUES (?, ?, ?)`
+      )
+      dataIn.environments.forEach((e, i) => insEnv.run(e.id, JSON.stringify(e), i))
+
+      this.ctx.db.prepare(`DELETE FROM collections`).run()
+      const insCol = this.ctx.db.prepare(
+        `INSERT INTO collections (id, json, sort_index) VALUES (?, ?, ?)`
+      )
+      dataIn.collections.forEach((c, i) => insCol.run(c.id, JSON.stringify(c), i))
+
+      this.ctx.db.prepare(`DELETE FROM history`).run()
+      const insHist = this.ctx.db.prepare(`INSERT INTO history (id, created_at, json) VALUES (?, ?, ?)`)
+      for (const r of historyRows) {
+        const h = JSON.parse(r.json) as HistoryEntry
+        insHist.run(h.id, h.createdAt, r.json)
+      }
+    })
+    tx()
   }
 }

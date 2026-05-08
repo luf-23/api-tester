@@ -18,6 +18,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: path.resolve(__dirname, 'main/index.ts'),
+        external: ['better-sqlite3'],
       },
     },
   },

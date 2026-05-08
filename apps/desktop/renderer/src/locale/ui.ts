@@ -22,6 +22,8 @@ export const ui = {
     toastImported: '已导入集合',
     toastExportOk: '已导出工作区',
     toastCreated: '已创建集合',
+    /** 集合根节点重命名：与其它集合名称冲突（忽略首尾空格，英文不区分大小写） */
+    collectionNameExists: '已存在同名集合，请改用其它名称。',
     toastDeleted: '已删除',
     toastDuplicated: '已复制',
     toastRunPlaceholder: '运行功能将接入运行面板',

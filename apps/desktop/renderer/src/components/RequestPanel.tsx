@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Collection, FolderNode, RequestWithTests } from '@api-tester/shared'
 import { defaultSendSettings } from '@api-tester/shared'
 import { ui } from '../locale/ui'
@@ -7,13 +7,7 @@ import { useWorkspaceStore } from '../store/workspace'
 import { sendHttp } from '../lib/api'
 import { KeyValueEditor } from './KeyValueEditor'
 import { MethodPick } from './MethodPick'
-import {
-  IconChevDown,
-  IconCode,
-  IconEdit,
-  IconSave,
-  IconSend,
-} from './icons'
+import { IconChevDown, IconSave, IconSend } from './icons'
 
 const SUBTABS = [
   { id: 'params' as const, label: ui.request.subtabs.params },
@@ -58,42 +52,12 @@ function breadcrumbForRequest(collections: Collection[], request: RequestWithTes
 export function RequestPanel({ request }: { request: RequestWithTests }) {
   const collections = useWorkspaceStore((s) => s.collections)
   const update = useWorkspaceStore((s) => s.updateRequest)
-  const renameNode = useWorkspaceStore((s) => s.renameNode)
   const setKv = useWorkspaceStore((s) => s.setKv)
   const setResponse = useTabsStore((s) => s.setResponse)
   const [active, setActive] = useState<SubtabId>('params')
   const [saveHint, setSaveHint] = useState<string | null>(null)
 
-  const enabledParams = request.params.filter((p) => p.enabled && p.key)
   const enabledHeaders = request.headers.filter((h) => h.enabled && h.key)
-  const dirty = useMemo(() => {
-    const d = defaultSendSettings()
-    const s = request.sendSettings
-    const settingsNonDefault = Boolean(
-      s &&
-        (s.timeoutMs !== d.timeoutMs ||
-          s.maxRedirects !== d.maxRedirects ||
-          s.validateTls !== d.validateTls)
-    )
-    return {
-      params: enabledParams.length > 0,
-      headers: enabledHeaders.length > 0,
-      body:
-        request.bodyMode === 'none'
-          ? false
-          : request.bodyMode === 'json' || request.bodyMode === 'text'
-            ? request.bodyText.trim().length > 0
-            : request.bodyFields.some((f) => f.enabled && f.key),
-      settings: settingsNonDefault,
-    }
-  }, [
-    enabledParams.length,
-    enabledHeaders.length,
-    request.bodyFields,
-    request.bodyMode,
-    request.bodyText,
-    request.sendSettings,
-  ])
 
   const breadcrumbParts = useMemo(
     () => breadcrumbForRequest(collections, request),
@@ -117,12 +81,15 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
     }
   }, [collections])
 
-  const onRenameClick = useCallback(() => {
-    const next = window.prompt(ui.request.renamePrompt, request.name)
-    if (next == null) return
-    const trimmed = next.trim()
-    if (trimmed && trimmed !== request.name) renameNode(request.id, trimmed)
-  }, [renameNode, request.id, request.name])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 's') return
+      e.preventDefault()
+      void onSaveNow()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onSaveNow])
 
   const onSend = async () => {
     setResponse(request.id, { loading: true })
@@ -165,16 +132,10 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           })}
         </div>
         <div className="header-actions">
-          <button type="button" className="btn btn--split" title={saveHint ?? undefined} onClick={() => void onSaveNow()}>
-            <IconSave /> {ui.request.save} <IconChevDown width={14} height={14} />
+          <button type="button" className="btn" title={saveHint ?? undefined} onClick={() => void onSaveNow()}>
+            <IconSave /> {ui.request.save}
           </button>
           {saveHint && <span className="request__hint muted">{saveHint}</span>}
-          <button type="button" className="btn" title={ui.request.viewCode}>
-            <IconCode />
-          </button>
-          <button type="button" className="btn" title={ui.request.rename} onClick={onRenameClick}>
-            <IconEdit />
-          </button>
         </div>
       </div>
 
@@ -200,10 +161,6 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
       <nav className="subtabs">
         {SUBTABS.map((tab) => {
           const count = tab.id === 'headers' ? enabledHeaders.length : 0
-          const dot = tab.id === 'params' ? dirty.params
-            : tab.id === 'body' ? dirty.body
-              : tab.id === 'settings' ? dirty.settings
-                : false
           return (
             <button
               key={tab.id}
@@ -213,7 +170,6 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
             >
               <span>{tab.label}</span>
               {count > 0 && <span className="subtab__badge">{count}</span>}
-              {dot && <span className="subtab__dot" />}
             </button>
           )
         })}

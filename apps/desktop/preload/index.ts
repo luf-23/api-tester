@@ -9,6 +9,8 @@ const api = {
   workspaceGet: () => ipcRenderer.invoke(ipcChannels.workspaceGet),
   workspaceSaveMeta: (meta: unknown) =>
     ipcRenderer.invoke(ipcChannels.workspaceSaveMeta, meta),
+  themeGet: () => ipcRenderer.invoke(ipcChannels.themeGet),
+  themeSet: (themeId: string) => ipcRenderer.invoke(ipcChannels.themeSet, themeId),
   collectionsList: () => ipcRenderer.invoke(ipcChannels.collectionsList),
   collectionsGetAll: () => ipcRenderer.invoke(ipcChannels.collectionsGetAll),
   collectionsSaveAll: (cols: unknown) =>

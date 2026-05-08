@@ -16,6 +16,8 @@ const SIDEBAR_MIN = 240
 const SIDEBAR_MAX = 560
 const SPLIT_MIN = 0.22
 const SPLIT_MAX = 0.78
+/** Default fraction of vertical space for the request pane (top); response gets the rest. */
+const SPLIT_DEFAULT = 0.68
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n))
@@ -45,8 +47,8 @@ export default function App() {
 
   const [splitFrac, setSplitFrac] = useState(() => {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_SPLIT) : null
-    const n = raw ? parseFloat(raw) : 0.5
-    return clamp(Number.isFinite(n) ? n : 0.5, SPLIT_MIN, SPLIT_MAX)
+    const n = raw ? parseFloat(raw) : SPLIT_DEFAULT
+    return clamp(Number.isFinite(n) ? n : SPLIT_DEFAULT, SPLIT_MIN, SPLIT_MAX)
   })
   const splitFracRef = useRef(splitFrac)
   splitFracRef.current = splitFrac
@@ -64,15 +66,17 @@ export default function App() {
       return
     }
     let cancelled = false
-    void bridge
-      .collectionsGetAll()
-      .then((cols) => {
+    void Promise.all([bridge.collectionsGetAll(), bridge.themeGet()])
+      .then(([cols, themeId]) => {
         if (cancelled) return
+        if (typeof themeId === 'string' && themeId.trim()) {
+          useThemeStore.getState().setTheme(themeId.trim())
+        }
         useWorkspaceStore.setState({ collections: cols })
         setBoot({ ui: true, persist: true })
       })
       .catch((err) => {
-        console.error('Failed to load collections', err)
+        console.error('Failed to load workspace', err)
         if (!cancelled) setBoot({ ui: true, persist: false })
       })
     return () => {
@@ -96,6 +100,30 @@ export default function App() {
     const unsub = useWorkspaceStore.subscribe((state, prev) => {
       if (state.collections === prev.collections) return
       persist(state.collections)
+    })
+
+    return () => {
+      clearTimeout(timeout)
+      unsub()
+    }
+  }, [boot.ui, boot.persist])
+
+  useEffect(() => {
+    if (!boot.ui || !boot.persist) return
+    const bridge = window.apiTester
+    if (!bridge?.themeSet) return
+
+    let timeout: ReturnType<typeof setTimeout>
+    const persist = (id: string) => {
+      clearTimeout(timeout)
+      timeout = setTimeout(() => {
+        void bridge.themeSet(id)
+      }, 320)
+    }
+
+    const unsub = useThemeStore.subscribe((state, prev) => {
+      if (state.themeId === prev.themeId) return
+      persist(state.themeId)
     })
 
     return () => {

@@ -21,6 +21,8 @@ declare global {
       historyAdd: (entry: unknown) => Promise<{ ok: boolean }>
       workspaceGet: () => Promise<unknown>
       workspaceSaveMeta: (meta: unknown) => Promise<{ ok: boolean }>
+      themeGet: () => Promise<string | null>
+      themeSet: (themeId: string) => Promise<{ ok: boolean }>
       collectionsList: () => Promise<unknown[]>
       collectionsGetAll: () => Promise<Collection[]>
       collectionsSaveAll: (cols: Collection[]) => Promise<{ ok: boolean }>

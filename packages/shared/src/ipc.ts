@@ -70,6 +70,8 @@ export const ipcChannels = {
   historyAdd: 'history:add',
   workspaceGet: 'workspace:get',
   workspaceSaveMeta: 'workspace:saveMeta',
+  themeGet: 'theme:get',
+  themeSet: 'theme:set',
   collectionsList: 'collections:list',
   collectionsGetAll: 'collections:getAll',
   collectionsSaveAll: 'collections:saveAll',

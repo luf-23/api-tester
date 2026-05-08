@@ -185,6 +185,23 @@ function emptyFolder(name = 'New Folder'): FolderNode {
   return { id: uid('fld'), name, children: [] }
 }
 
+function normCollectionName(s: string): string {
+  return s.trim().toLowerCase()
+}
+
+function uniqueCollectionName(collections: Collection[], base: string): string {
+  const taken = new Set(collections.map((c) => normCollectionName(c.name)))
+  const b = base.trim() || 'Untitled Collection'
+  if (!taken.has(normCollectionName(b))) return b
+  let i = 2
+  let candidate: string
+  do {
+    candidate = `${b} (${i})`
+    i++
+  } while (taken.has(normCollectionName(candidate)))
+  return candidate
+}
+
 interface WorkspaceState {
   collections: Collection[]
   expanded: Record<string, boolean>
@@ -197,7 +214,7 @@ interface WorkspaceState {
     section: 'params' | 'headers' | 'bodyFields',
     next: KeyValue[]
   ) => void
-  renameNode: (id: string, name: string) => void
+  renameNode: (id: string, name: string) => boolean
   deleteNode: (id: string) => void
   duplicateRequest: (id: string) => string | undefined
   addRequest: (parentId: string, method?: HttpMethod) => string
@@ -234,14 +251,27 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         root: patchRequest(c.root, id, { [section]: next } as Partial<RequestWithTests>),
       })),
     })),
-  renameNode: (id, name) =>
+  renameNode: (id, name) => {
+    const trimmed = name.trim()
+    if (!trimmed) return false
+    const state = get()
+    const colForRoot = state.collections.find((c) => c.root.id === id)
+    if (colForRoot) {
+      const key = normCollectionName(trimmed)
+      const dup = state.collections.some(
+        (c) => c.id !== colForRoot.id && normCollectionName(c.name) === key
+      )
+      if (dup) return false
+    }
     set((s) => ({
       collections: s.collections.map((c) =>
         c.root.id === id
-          ? { ...c, name, root: renameInTree(c.root, id, name) }
-          : { ...c, root: renameInTree(c.root, id, name) }
+          ? { ...c, name: trimmed, root: renameInTree(c.root, id, trimmed) }
+          : { ...c, root: renameInTree(c.root, id, trimmed) }
       ),
-    })),
+    }))
+    return true
+  },
   deleteNode: (id) =>
     set((s) => {
       const collections = s.collections.filter((c) => c.id !== id && c.root.id !== id)
@@ -290,16 +320,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
   addCollection: (name = 'Untitled Collection') => {
     const rootId = uid('root')
+    const unique = uniqueCollectionName(get().collections, name)
     const col: Collection = {
       id: uid('col'),
-      name,
-      root: { id: rootId, name, children: [] },
+      name: unique,
+      root: { id: rootId, name: unique, children: [] },
     }
     set((s) => ({
       collections: [...s.collections, col],
       expanded: { ...s.expanded, [rootId]: true },
     }))
-    return col.id
+    /** Root folder id — matches tree row `node.id` for inline rename. */
+    return col.root.id
   },
   moveNode: (sourceId, targetId, position) =>
     set((s) => {

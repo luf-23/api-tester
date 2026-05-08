@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -24,11 +25,47 @@ import { MockServerController } from '@api-tester/mock-server'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+/** Workspace root: SQLite + Electron Chromium profile (otherwise Electron creates %APPDATA%\<name>). */
+function resolveWorkspaceDataRoot(): string {
+  const override = process.env.API_TESTER_DATA_DIR?.trim()
+  if (override) return path.resolve(override)
+  if (!app.isPackaged) {
+    return path.join(app.getAppPath(), 'api-tester-data')
+  }
+  return path.join(path.dirname(app.getPath('exe')), 'api-tester-data')
+}
+
+// Must run before ready — otherwise Roaming keeps getting a folder for caches / storage.
+const workspaceDataRoot = resolveWorkspaceDataRoot()
+app.setPath('userData', workspaceDataRoot)
+// Remote debugging writes DevToolsActivePort under userData before whenReady / openDatabase mkdir.
+fs.mkdirSync(workspaceDataRoot, { recursive: true })
+
 let mainWindow: BrowserWindow | null = null
 let store: WorkspaceStore | null = null
 const mockCtl = new MockServerController()
 
+/** Prefer path next to main bundle; fall back to package `out/preload` (pnpm / cwd quirks). */
+function resolvePreloadPath(): string {
+  const names = ['index.mjs', 'index.js', 'index.cjs'] as const
+  const dirs = [
+    path.join(__dirname, '..', 'preload'),
+    path.join(app.getAppPath(), 'out', 'preload'),
+  ]
+  const tried: string[] = []
+  for (const dir of dirs) {
+    for (const name of names) {
+      const full = path.join(dir, name)
+      tried.push(full)
+      if (fs.existsSync(full)) return full
+    }
+  }
+  console.error('[main] Preload not found; window.apiTester will be missing. Checked:\n', tried.join('\n'))
+  return path.join(__dirname, '..', 'preload', 'index.mjs')
+}
+
 function createWindow(): void {
+  const preload = resolvePreloadPath()
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -36,10 +73,11 @@ function createWindow(): void {
     minHeight: 640,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.mjs'),
+      preload,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      // sandbox + native ipc/preload is flaky on some Windows/dev setups; keeps preload exposing apiTester
+      sandbox: false,
     },
   })
 
@@ -53,7 +91,8 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  const dbPath = app.getPath('userData')
+  const dbPath = resolveWorkspaceDataRoot()
+  console.info('[main] Workspace data directory:', dbPath)
   const db = openDatabase(dbPath)
   store = new WorkspaceStore(db)
 
@@ -78,6 +117,13 @@ app.whenReady().then(() => {
   ipcMain.handle(ipcChannels.workspaceGet, async () => store!.getWorkspaceMeta())
   ipcMain.handle(ipcChannels.workspaceSaveMeta, async (_e, meta: unknown) => {
     store!.saveWorkspaceMeta(meta as Parameters<WorkspaceStore['saveWorkspaceMeta']>[0])
+    return { ok: true }
+  })
+
+  ipcMain.handle(ipcChannels.themeGet, async () => store!.getThemeId() ?? null)
+  ipcMain.handle(ipcChannels.themeSet, async (_e, themeId: unknown) => {
+    if (typeof themeId !== 'string' || !themeId.trim()) throw new Error('Invalid theme id')
+    store!.setThemeId(themeId.trim())
     return { ok: true }
   })
 
@@ -209,11 +255,19 @@ app.whenReady().then(() => {
   })
 })
 
+app.on('before-quit', () => {
+  store?.close()
+  store = null
+})
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('web-contents-created', (_event, contents) => {
+  contents.on('preload-error', (_e, preloadPath, err) => {
+    console.error('[main] preload-error', preloadPath, err)
+  })
   contents.setWindowOpenHandler((details) => {
     void shell.openExternal(details.url)
     return { action: 'deny' }

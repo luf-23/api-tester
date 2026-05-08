@@ -432,6 +432,22 @@ body.is-resizing-row .resize-handle--row::after {
   opacity: 1;
   pointer-events: auto;
 }
+/* Touch / no-hover: row actions stay usable without hovering first */
+@media (hover: none) {
+  .tree-row:not(.is-renaming) .tree-row__actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+/* Inline rename input sits under absolutely positioned actions; block hit-stealing while editing */
+.tree-row.is-renaming .tree-row__actions {
+  opacity: 0;
+  pointer-events: none;
+}
+.tree-row.is-renaming .tree-row__rename {
+  position: relative;
+  z-index: 2;
+}
 
 .row-icon {
   width: 26px; height: 26px;
@@ -820,7 +836,6 @@ body.is-resizing-row .resize-handle--row::after {
   font-variant-numeric: tabular-nums;
 }
 .subtab.is-active .subtab__badge { color: var(--accent); border-color: var(--accent-ring); }
-.subtab__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 .subtabs__spacer { flex: 1; }
 .subtabs__link { color: var(--text-secondary); background: transparent; border: 0; }
 .subtabs__link:hover { color: var(--accent); }
