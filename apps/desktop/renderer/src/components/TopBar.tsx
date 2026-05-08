@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 import { ThemeCard } from './ThemeCard'
@@ -24,8 +24,14 @@ export function TopBar() {
   const activate = useTabsStore((s) => s.activate)
   const close = useTabsStore((s) => s.close)
   const openTab = useTabsStore((s) => s.open)
-  const getRequest = useWorkspaceStore((s) => s.getRequest)
   const collections = useWorkspaceStore((s) => s.collections)
+  const tabsMeta = useMemo(() => {
+    void collections
+    return openIds.map((id) => ({
+      id,
+      request: useWorkspaceStore.getState().getRequest(id),
+    }))
+  }, [openIds, collections])
   const addCollection = useWorkspaceStore((s) => s.addCollection)
   const addRequest = useWorkspaceStore((s) => s.addRequest)
 
@@ -43,8 +49,7 @@ export function TopBar() {
   return (
     <header className="topbar">
       <div className="tabs" role="tablist" aria-label={ui.topBar.tablist}>
-        {openIds.map((id) => {
-          const r = getRequest(id)
+        {tabsMeta.map(({ id, request: r }) => {
           if (!r) return null
           const active = id === activeId
           return (

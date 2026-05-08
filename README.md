@@ -17,12 +17,12 @@ packages/mock-server  Embedded HTTP mock server
 
 The renderer is composed of independent panels that match the prototype:
 
-- `Sidebar` ！ vertical nav rail (Collections, Environments, History, APIs, Mock, Monitors, Flows, Settings)
-- `CollectionsPanel` ！ workspace picker, collection tree, theme card
-- `TopBar` ！ request tabs + environment selector + account avatar
-- `RequestPanel` ！ URL bar, Params/Headers/Auth/Body/Tests/Pre-request/Settings sub-tabs
-- `ResponsePanel` ！ Body/Cookies/Headers/Test Results, with JSON viewer + Response Explorer
-- `StatusBar` ！ system status, Console/Runner/Trash, version, help
+- `Sidebar` ? vertical nav rail (Collections, Environments, History, APIs, Mock, Monitors, Flows, Settings)
+- `CollectionsPanel` ? workspace picker, collection tree, theme card
+- `TopBar` ? request tabs, theme card (appearance settings)
+- `RequestPanel` ? URL bar; Params/Headers/Auth/Body/Tests/Pre-request/Settings sub-tabs
+- `ResponsePanel` ? Body/Cookies/Headers/Test Results; JSON viewer + Response Explorer
+- `StatusBar` ? local workspace stats and active tab indicator
 
 State is split into three Zustand stores: `workspace` (collections), `tabs` (open requests + responses), and `theme` (jade palette switcher).
 

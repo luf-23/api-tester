@@ -42,7 +42,11 @@ body.is-resizing-row * {
 }
 
 button { font: inherit; color: inherit; cursor: pointer; }
-input, textarea, select { font: inherit; color: inherit; }
+input, textarea, select, option {
+  font: inherit; color: inherit;
+  user-select: text;
+  -webkit-user-select: text;
+}
 
 ::-webkit-scrollbar { width: 12px; height: 12px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -755,6 +759,70 @@ body.is-resizing-row .resize-handle--row::after {
 
 .subpanel { padding: 18px 20px; flex: 1; overflow: auto; min-height: 0; }
 .subpanel h4 { margin: 0 0 14px; font-size: var(--fs-caption); font-weight: 700; color: var(--text-secondary); letter-spacing: 0.06em; text-transform: uppercase; }
+
+.tests-editor__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tests-editor__row {
+  padding: 12px 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-ui);
+}
+.tests-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px 12px;
+  align-items: end;
+}
+.tests-editor__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.tests-editor__field--grow {
+  grid-column: span 2;
+}
+.tests-editor__label {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.tests-editor__field select,
+.tests-editor__field input[type='text'],
+.tests-editor__field input[type='number'] {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius-ui);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  outline: 0;
+  font-family: var(--font-code);
+  font-size: var(--fs-small);
+}
+.tests-editor__field select:focus,
+.tests-editor__field input:focus {
+  border-color: var(--accent-ring);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.tests-editor__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+.tests-editor__actions .kv__bulk {
+  padding: 6px 10px;
+  min-height: 32px;
+}
+
+.response__test-detail { flex: 1; min-width: 0; word-break: break-word; }
 
 /* ---------- Key/Value table ---------- */
 .kv {

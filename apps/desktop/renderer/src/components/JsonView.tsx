@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 function highlight(line: string): React.ReactNode {
   /* Lightweight tokenizer: matches keys, strings, numbers, booleans, nulls, punctuation. */
   const parts: React.ReactNode[] = []
-  const re = /("(?:[^"\\]|\\.)*")(\s*:)?|(\b-?\d+(?:\.\d+)?(?:e[-+]?\d+)?\b)|(\btrue\b|\bfalse\b)|(\bnull\b)|([{}\[\],])/g
+  const re = /("(?:[^"\\]|\\.)*")(\s*:)?|(\b-?\d+(?:\.\d+)?(?:e[-+]?\d+)?\b)|(\btrue\b|\bfalse\b)|(\bnull\b)|([{}[\],])/g
   let last = 0
   let m: RegExpExecArray | null
   let i = 0

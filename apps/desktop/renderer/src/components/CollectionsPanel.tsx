@@ -14,6 +14,7 @@ import type {
   HttpMethod,
   RequestWithTests,
 } from '@api-tester/shared'
+import { importPostmanCollectionV21 } from '@api-tester/domain'
 import { ui } from '../locale/ui'
 import { useWorkspaceStore, type DropPosition } from '../store/workspace'
 import { useTabsStore } from '../store/tabs'
@@ -72,12 +73,12 @@ export function CollectionsPanel() {
     null
   )
 
-  const renameNode = useWorkspaceStore((s) => s.renameNode)
   const deleteNode = useWorkspaceStore((s) => s.deleteNode)
   const duplicateRequest = useWorkspaceStore((s) => s.duplicateRequest)
   const addRequest = useWorkspaceStore((s) => s.addRequest)
   const addFolder = useWorkspaceStore((s) => s.addFolder)
   const addCollection = useWorkspaceStore((s) => s.addCollection)
+  const mergePostman = useWorkspaceStore((s) => s.importPostmanCollection)
   const moveNode = useWorkspaceStore((s) => s.moveNode)
   const closeTab = useTabsStore((s) => s.close)
   const openTabs = useTabsStore((s) => s.openIds)
@@ -120,18 +121,17 @@ export function CollectionsPanel() {
           }
           showToast(ui.collections.toastImported)
         } else {
-          // Fallback: parse on renderer side
-          const parsed = JSON.parse(text) as { info?: { name?: string }; item?: unknown[] }
-          if (!parsed?.info?.name) throw new Error(ui.collections.postmanError)
-          const id = addCollection(parsed.info.name)
-          showToast(`已导入「${parsed.info.name}」 (${id.slice(-4)})`)
+          const col = importPostmanCollectionV21(JSON.parse(text) as unknown)
+          if (!col) throw new Error(ui.collections.postmanError)
+          mergePostman(col)
+          showToast(`已导入「${col.name}」`)
         }
       } catch (err) {
         showToast(`${ui.collections.importFail}：${(err as Error).message}`, 'err')
       }
     }
     input.click()
-  }, [addCollection, showToast])
+  }, [mergePostman, showToast])
 
   const handleExport = useCallback(async () => {
     try {

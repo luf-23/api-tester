@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Collection } from '@api-tester/shared'
 import { CollectionsPanel } from './components/CollectionsPanel'
 import { TopBar } from './components/TopBar'
@@ -23,7 +23,12 @@ function clamp(n: number, lo: number, hi: number): number {
 
 export default function App() {
   const activeId = useTabsStore((s) => s.activeId)
-  const getRequest = useWorkspaceStore((s) => s.getRequest)
+  const collections = useWorkspaceStore((s) => s.collections)
+  const activeRequest = useMemo(() => {
+    void collections
+    if (!activeId) return undefined
+    return useWorkspaceStore.getState().getRequest(activeId)
+  }, [activeId, collections])
   const themeId = useThemeStore((s) => s.themeId)
   const [boot, setBoot] = useState<{ ui: boolean; persist: boolean }>({
     ui: false,
@@ -140,8 +145,6 @@ export default function App() {
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }, [])
-
-  const activeRequest = activeId ? getRequest(activeId) : undefined
 
   if (!boot.ui) {
     return (

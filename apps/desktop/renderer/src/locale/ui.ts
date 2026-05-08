@@ -65,8 +65,12 @@ export const ui = {
   /** 右侧请求编辑器：英文术语（与 Postman / OpenAPI 惯例一致） */
   request: {
     save: 'Save',
-    viewCode: 'View code',
+    saveDone: 'Saved to disk',
+    saveFail: 'Save failed',
+    saveNoBridge: 'Saving requires the desktop app — data is in memory only.',
     rename: 'Rename',
+    renamePrompt: 'New name',
+    viewCode: 'View code',
     urlPlaceholder: 'https://api.example.com/v1/resource',
     send: 'Send',
     sendOptions: 'Send options',
@@ -88,7 +92,20 @@ export const ui = {
     authHint:
       'Inherit from the parent folder or override with Bearer, Basic, API Key, or other auth types.',
     testsTitle: 'Tests',
+    testsHint: 'Assertions run after Send. Results appear under Response → Test Results.',
+    testsAdd: 'Add assertion',
+    testsRemoveRow: 'Remove',
+    testsType: 'Type',
+    testsTarget: 'Target',
+    testsExpected: 'Expected',
+    testsOperator: 'Operator',
     noTests: 'No tests defined yet.',
+    testTypes: {
+      status: 'Status code',
+      header: 'Header',
+      body_contains: 'Body contains',
+      json_path: 'JSONPath',
+    } as const,
     scriptHint: 'JavaScript runs before the request is sent. Editing will be available in a future update.',
     settingsTitle: 'Settings',
     settingsHint: 'Timeouts, redirect behavior, and TLS / SSL options will appear here.',
@@ -127,6 +144,9 @@ export const ui = {
     relativeNever: 'Never',
     relativeJustNow: 'Just now',
     relativeMinutesAgo: (m: number) => `${m}m ago`,
+    errorSending: 'Request failed',
+    testsNoRunYet: 'Run Send to evaluate tests.',
+    testsNoneDefined: 'No assertions on this request.',
     types: {
       array: (n: number) => `array[${n}]`,
       number: 'number',
@@ -140,11 +160,6 @@ export const ui = {
     },
     pass: 'PASS',
     fail: 'FAIL',
-    testNames: [
-      'Status code is 200',
-      'Content-Type is application/json',
-      'Response body contains data array',
-    ],
   },
   /** 请求内键值表（Params / Headers） */
   kv: {
@@ -161,6 +176,7 @@ export const ui = {
       sort: 'Sort order',
       Authorization: 'Bearer token for this request',
       Accept: 'Expected response media type',
+      'Content-Type': 'Request body media type (enable when needed)',
     },
   },
 } as const

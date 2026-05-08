@@ -1,6 +1,7 @@
+import type { AssertionResultItem } from '@api-tester/domain'
 import { useMemo, useState } from 'react'
-import type { HttpResponseView } from '@api-tester/shared'
 import { ui } from '../locale/ui'
+import { useWorkspaceStore } from '../store/workspace'
 import { useTabsStore } from '../store/tabs'
 import { formatBytes, formatDuration, safeParseJson, statusClass, tryFormatJson } from '../lib/format'
 import { JsonView } from './JsonView'
@@ -44,6 +45,7 @@ function emptySectionCounts(): Record<Section, number> {
 
 export function ResponsePanel({ requestId }: Props) {
   const state = useTabsStore((s) => s.responses[requestId])
+  const testRuleCount = useWorkspaceStore((s) => s.getRequest(requestId)?.tests.length ?? 0)
   const [section, setSection] = useState<Section>(SECTIONS[0])
   const [view, setView] = useState<ViewTab>(VIEW_TABS[0])
 
@@ -52,15 +54,26 @@ export function ResponsePanel({ requestId }: Props) {
     if (!response) return emptySectionCounts()
     const headerCount = Object.keys(response.headers).length
     const cookies = (response.headers['set-cookie'] ?? '').split(',').filter(Boolean).length
+    const testsCount = state?.assertionResults?.length ?? 0
     return {
       [SECTIONS[0]]: 0,
-      [SECTIONS[1]]: cookies || 2,
+      [SECTIONS[1]]: cookies || (headerCount ? 2 : 0),
       [SECTIONS[2]]: headerCount,
-      [SECTIONS[3]]: 3,
+      [SECTIONS[3]]: testsCount,
     } satisfies Record<Section, number>
-  }, [response])
+  }, [response, state?.assertionResults?.length])
 
   if (!response && !state?.loading) {
+    if (state?.error) {
+      return (
+        <section className="response">
+          <div className="response__head">
+            <span className="status-pill s-5xx">{ui.response.errorSending}</span>
+            <span className="muted">{state.error}</span>
+          </div>
+        </section>
+      )
+    }
     return (
       <section className="response">
         <div className="response__head">
@@ -141,7 +154,12 @@ export function ResponsePanel({ requestId }: Props) {
           )}
           {section === SECTIONS[2] && <HeadersList headers={r.headers} />}
           {section === SECTIONS[1] && <CookiesList headers={r.headers} />}
-          {section === SECTIONS[3] && <TestResults />}
+          {section === SECTIONS[3] && (
+            <TestResultsList
+              assertionResults={state?.assertionResults}
+              testRuleCount={testRuleCount}
+            />
+          )}
         </div>
         <ResponseExplorer json={json} />
       </div>
@@ -177,20 +195,41 @@ function CookiesList({ headers }: { headers: Record<string, string> }) {
   )
 }
 
-function TestResults() {
-  const items = ui.response.testNames.map((name, i) => ({ name, ok: true, i }))
+function TestResultsList({
+  assertionResults,
+  testRuleCount,
+}: {
+  assertionResults?: AssertionResultItem[]
+  testRuleCount: number
+}) {
+  if (testRuleCount === 0) {
+    return (
+      <div className="response__mono-scroll dim" style={{ padding: 16 }}>
+        {ui.response.testsNoneDefined}
+      </div>
+    )
+  }
+  if (!assertionResults || assertionResults.length === 0) {
+    return (
+      <div className="response__mono-scroll dim" style={{ padding: 16 }}>
+        {ui.response.testsNoRunYet}
+      </div>
+    )
+  }
   return (
     <ul className="response__tests-list">
-      {items.map((it) => (
-        <li key={it.i} className="response__test-item">
+      {assertionResults.map((it) => (
+        <li key={it.ruleId} className="response__test-item">
           <span
             className="response__test-dot"
             style={{
               background: it.ok ? 'var(--status-2xx)' : 'var(--status-5xx)',
             }}
           />
-          <span>{it.name}</span>
-          <span className="muted response__test-pass">{it.ok ? ui.response.pass : ui.response.fail}</span>
+          <span className="response__test-pass">{it.ok ? ui.response.pass : ui.response.fail}</span>
+          <span className="muted response__test-detail">
+            {it.message ?? (it.ok ? '—' : '')}
+          </span>
         </li>
       ))}
     </ul>

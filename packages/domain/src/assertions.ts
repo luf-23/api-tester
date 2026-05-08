@@ -7,15 +7,29 @@ export interface AssertionContext {
   bodyText: string
 }
 
+/** Per-rule outcome for UI (e.g. Test Results tab). */
+export interface AssertionResultItem {
+  ruleId: string
+  ok: boolean
+  message?: string
+}
+
+export function evaluateAssertions(
+  rules: AssertionRule[],
+  ctx: AssertionContext
+): AssertionResultItem[] {
+  return rules.map((rule) => {
+    const message = assertOne(rule, ctx)
+    return { ruleId: rule.id, ok: message === undefined, message }
+  })
+}
+
 export function runAssertions(
   rules: AssertionRule[],
   ctx: AssertionContext
 ): { ok: boolean; failures: string[] } {
-  const failures: string[] = []
-  for (const r of rules) {
-    const err = assertOne(r, ctx)
-    if (err) failures.push(err)
-  }
+  const items = evaluateAssertions(rules, ctx)
+  const failures = items.filter((i) => !i.ok).map((i) => i.message ?? 'failed')
   return { ok: failures.length === 0, failures }
 }
 

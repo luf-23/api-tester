@@ -55,12 +55,30 @@ function mapRequest(obj: Record<string, unknown>): RequestWithTests {
   const name = String(obj.name ?? 'Request')
   const req = obj.request as Record<string, unknown> | string
   if (typeof req === 'string') {
+    let baseUrl = req
+    let params: KeyValue[] = []
+    try {
+      const u = new URL(req)
+      params = []
+      u.searchParams.forEach((value, key) => {
+        params.push({
+          id: cryptoRandomId(),
+          key,
+          value,
+          enabled: true,
+        })
+      })
+      u.search = ''
+      baseUrl = u.toString()
+    } catch {
+      /* keep raw string */
+    }
     return {
       id: cryptoRandomId(),
       name,
       method: 'GET',
-      url: req,
-      params: [],
+      url: baseUrl,
+      params,
       headers: [],
       bodyMode: 'none',
       bodyText: '',
@@ -69,7 +87,17 @@ function mapRequest(obj: Record<string, unknown>): RequestWithTests {
     }
   }
   const method = String(req.method ?? 'GET').toUpperCase() as HttpMethod
-  const url = extractUrl(req.url)
+  const params = extractQueryParams(req.url)
+  let url = extractUrl(req.url)
+  if (params.length && url.includes('?')) {
+    try {
+      const u = new URL(url)
+      u.search = ''
+      url = u.toString()
+    } catch {
+      /* leave url as extracted */
+    }
+  }
   const headers = mapHeaders(req.header)
   const { bodyMode, bodyText, bodyFields } = mapBody(req.body)
 
@@ -78,13 +106,34 @@ function mapRequest(obj: Record<string, unknown>): RequestWithTests {
     name,
     method,
     url,
-    params: [],
+    params,
     headers,
     bodyMode,
     bodyText,
     bodyFields,
     tests: [],
   }
+}
+
+function extractQueryParams(urlField: unknown): KeyValue[] {
+  if (!urlField || typeof urlField !== 'object') return []
+  const u = urlField as Record<string, unknown>
+  const query = u.query
+  if (!Array.isArray(query)) return []
+  const out: KeyValue[] = []
+  for (const row of query) {
+    if (!row || typeof row !== 'object') continue
+    const o = row as Record<string, unknown>
+    const key = String(o.key ?? '')
+    if (!key) continue
+    out.push({
+      id: cryptoRandomId(),
+      key,
+      value: String(o.value ?? ''),
+      enabled: !o.disabled,
+    })
+  }
+  return out
 }
 
 function extractUrl(urlField: unknown): string {

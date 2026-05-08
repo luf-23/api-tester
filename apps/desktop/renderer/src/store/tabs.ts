@@ -1,11 +1,13 @@
 import { create } from 'zustand'
 import type { HttpResponseView } from '@api-tester/shared'
+import type { AssertionResultItem } from '@api-tester/domain'
 
 export interface TabResponseState {
   loading: boolean
   response?: HttpResponseView
   error?: string
   receivedAt?: number
+  assertionResults?: AssertionResultItem[]
 }
 
 interface TabsState {

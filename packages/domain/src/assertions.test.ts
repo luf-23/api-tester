@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { runAssertions } from './assertions'
+import { evaluateAssertions, runAssertions } from './assertions'
 
 describe('assertions', () => {
   it('passes matching status and body', () => {
@@ -16,6 +16,20 @@ describe('assertions', () => {
     )
     expect(out.ok).toBe(true)
     expect(out.failures).toHaveLength(0)
+  })
+
+  it('evaluateAssertions returns one row per rule', () => {
+    const rows = evaluateAssertions(
+      [
+        { id: 's', type: 'status', expected: 404, operator: 'eq' },
+        { id: 'b', type: 'body_contains', expected: 'xyz', operator: 'contains' },
+      ],
+      { status: 200, headers: {}, bodyText: 'hello world' }
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows.every((r) => !r.ok)).toBe(true)
+    expect(rows[0].message).toContain('expected')
+    expect(rows[1].message).toContain('missing')
   })
 
   it('fails json_path when expected mismatch', () => {

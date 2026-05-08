@@ -96,6 +96,7 @@ function defaultDescription(key: string): string {
     sort: ui.kv.placeholders.sort,
     Authorization: ui.kv.placeholders.Authorization,
     Accept: ui.kv.placeholders.Accept,
+    'Content-Type': ui.kv.placeholders['Content-Type'],
   }
   return map[key] ?? ''
 }

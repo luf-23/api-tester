@@ -133,6 +133,15 @@ function cloneRequest(req: RequestWithTests): RequestWithTests {
   }
 }
 
+/** Common starter headers — users can toggle off or edit. GET keeps Content-Type off to avoid noise. */
+function defaultHeaders(): KeyValue[] {
+  return [
+    { id: uid('kv'), key: 'Accept', value: 'application/json', enabled: true },
+    { id: uid('kv'), key: 'Content-Type', value: 'application/json', enabled: false },
+    { id: uid('kv'), key: 'Authorization', value: '', enabled: false },
+  ]
+}
+
 function emptyRequest(name = 'New Request', method: HttpMethod = 'GET'): RequestWithTests {
   return {
     id: uid('req'),
@@ -140,7 +149,7 @@ function emptyRequest(name = 'New Request', method: HttpMethod = 'GET'): Request
     method,
     url: 'https://api.example.com/endpoint',
     params: [],
-    headers: [],
+    headers: defaultHeaders(),
     bodyMode: 'none',
     bodyText: '',
     bodyFields: [],
