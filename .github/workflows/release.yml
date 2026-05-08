@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Rebuild native (better-sqlite3)
+        run: pnpm --filter @api-tester/desktop rebuild:native
+
+      - name: Build desktop
+        run: pnpm build
+
+      - name: Stage release files (exclude unpacked dirs)
+        shell: bash
+        run: |
+          mkdir -p staging
+          for f in apps/desktop/release/*; do
+            [[ -f "$f" ]] || continue
+            case "$f" in
+              *.exe|*.dmg|*.AppImage|*.yml|*.yaml|*.blockmap) cp "$f" staging/ ;;
+            esac
+          done
+          ls -la staging/
+          [[ $(ls -A staging) ]] || { echo "No release files staged"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}
+          path: staging/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: release-*
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: artifacts/*
