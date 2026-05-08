@@ -14,6 +14,7 @@ import type {
   HttpMethod,
   RequestWithTests,
 } from '@api-tester/shared'
+import { ui } from '../locale/ui'
 import { useWorkspaceStore, type DropPosition } from '../store/workspace'
 import { useTabsStore } from '../store/tabs'
 import {
@@ -22,7 +23,6 @@ import {
   IconEdit,
   IconExport,
   IconFilePlus,
-  IconFilter,
   IconFolder,
   IconFolderPlus,
   IconImport,
@@ -118,16 +118,16 @@ export function CollectionsPanel() {
             const refreshed = await bridge.collectionsGetAll()
             useWorkspaceStore.setState({ collections: refreshed })
           }
-          showToast('Imported collection')
+          showToast(ui.collections.toastImported)
         } else {
           // Fallback: parse on renderer side
           const parsed = JSON.parse(text) as { info?: { name?: string }; item?: unknown[] }
-          if (!parsed?.info?.name) throw new Error('Not a Postman v2 collection')
+          if (!parsed?.info?.name) throw new Error(ui.collections.postmanError)
           const id = addCollection(parsed.info.name)
-          showToast(`Imported "${parsed.info.name}" (${id.slice(-4)})`)
+          showToast(`已导入「${parsed.info.name}」 (${id.slice(-4)})`)
         }
       } catch (err) {
-        showToast(`Import failed: ${(err as Error).message}`, 'err')
+        showToast(`${ui.collections.importFail}：${(err as Error).message}`, 'err')
       }
     }
     input.click()
@@ -146,9 +146,9 @@ export function CollectionsPanel() {
       a.download = `api-tester-workspace-${Date.now()}.json`
       a.click()
       URL.revokeObjectURL(url)
-      showToast('Workspace exported')
+      showToast(ui.collections.toastExportOk)
     } catch (err) {
-      showToast(`Export failed: ${(err as Error).message}`, 'err')
+      showToast(`${ui.collections.exportFail}：${(err as Error).message}`, 'err')
     }
   }, [collections, showToast])
 
@@ -196,14 +196,14 @@ export function CollectionsPanel() {
     <div className="collections">
       <div className="collections__top">
         <div className="collections__identity">
-          <span className="collections__identity-title">Collections</span>
-          <span className="collections__identity-badge">Local</span>
+          <span className="collections__identity-title">{ui.collections.title}</span>
+          <span className="collections__identity-badge">{ui.collections.badgeLocal}</span>
         </div>
         <div className="search-row">
           <div className="search-input">
             <IconSearch width={18} height={18} />
             <input
-              placeholder="Search collections, requests, URLs"
+              placeholder={ui.collections.searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -211,25 +211,25 @@ export function CollectionsPanel() {
               <button
                 className="search-input__clear"
                 onClick={() => setSearch('')}
-                aria-label="Clear search"
+                aria-label={ui.collections.clearSearch}
               >
                 ×
               </button>
             )}
           </div>
-          <button className="icon-btn" title="Import collection" onClick={handleImport}>
+          <button className="icon-btn" title={ui.collections.importTitle} onClick={handleImport}>
             <IconImport />
           </button>
-          <button className="icon-btn" title="Export workspace" onClick={handleExport}>
+          <button className="icon-btn" title={ui.collections.exportTitle} onClick={handleExport}>
             <IconExport />
           </button>
           <button
             className="icon-btn is-accent"
-            title="New collection"
+            title={ui.collections.newCollectionTitle}
             onClick={() => {
               const id = addCollection()
               setEditingId(id)
-              showToast('Collection created')
+              showToast(ui.collections.toastCreated)
             }}
           >
             <IconPlus />
@@ -239,8 +239,8 @@ export function CollectionsPanel() {
       <div className="tree" onClick={() => setMenu(null)}>
         {filteredCollections.length === 0 && (
           <div className="tree__empty">
-            <p>No matches</p>
-            <small>Try a different keyword or clear the search.</small>
+            <p>{ui.collections.noMatches}</p>
+            <small>{ui.collections.noMatchesHint}</small>
           </div>
         )}
         {filteredCollections.map((col, idx) => (
@@ -267,7 +267,7 @@ export function CollectionsPanel() {
             const id = menu.nodeId
             if (action === 'rename') setEditingId(id)
             else if (action === 'delete') {
-              if (confirm('Delete this item? This cannot be undone.')) {
+              if (confirm(ui.collections.confirmDelete)) {
                 // Close any tabs whose request lives inside the deleted subtree.
                 const collectIds = (n: FolderNode | RequestWithTests): string[] =>
                   isRequest(n) ? [n.id] : n.children.flatMap(collectIds)
@@ -287,11 +287,11 @@ export function CollectionsPanel() {
                   if (openTabs.includes(rid)) closeTab(rid)
                 })
                 deleteNode(id)
-                showToast('Deleted')
+                showToast(ui.collections.toastDeleted)
               }
             } else if (action === 'duplicate') {
               const newId = duplicateRequest(id)
-              if (newId) showToast('Duplicated')
+              if (newId) showToast(ui.collections.toastDuplicated)
             } else if (action === 'add-request') {
               const newId = addRequest(id)
               setEditingId(newId)
@@ -299,7 +299,7 @@ export function CollectionsPanel() {
               const newId = addFolder(id)
               setEditingId(newId)
             } else if (action === 'run') {
-              showToast('Run is wired to the runner panel')
+              showToast(ui.collections.toastRunPlaceholder)
             }
             setMenu(null)
           }}
@@ -453,13 +453,13 @@ function FolderRow({
           </span>
         )}
         <span className="tree-row__count">
-          {total} {total === 1 ? 'request' : 'requests'}
+          {total === 1 ? ui.collections.requestsCountOne : ui.collections.requestsCountMany(total)}
         </span>
         {rootStar && <IconStar className="tree-row__star" width={14} height={14} />}
         <div className="tree-row__actions" onClick={(e) => e.stopPropagation()}>
           <button
             className="row-icon"
-            title="Add request"
+            title={ui.collections.addRequest}
             onClick={() => {
               const id = addRequest(node.id)
               setEditingId(id)
@@ -469,7 +469,7 @@ function FolderRow({
           </button>
           <button
             className="row-icon"
-            title="Add folder"
+            title={ui.collections.addFolder}
             onClick={() => {
               const id = addFolder(node.id)
               setEditingId(id)
@@ -479,7 +479,7 @@ function FolderRow({
           </button>
           <button
             className="row-icon"
-            title="More"
+            title={ui.collections.more}
             onClick={(e) =>
               onContext(e, node.id, isCollectionRoot ? 'collection' : 'folder')
             }
@@ -492,7 +492,7 @@ function FolderRow({
         <div className="tree-children" data-depth={depth}>
           {node.children.length === 0 && (
             <div className="tree-row tree-row--empty" data-depth={depth + 1}>
-              <span className="tree-row__name dim">Empty — right-click to add</span>
+              <span className="tree-row__name dim">{ui.collections.emptyFolderHint}</span>
             </div>
           )}
           {node.children.map((child) => {
@@ -617,21 +617,21 @@ function RequestRow({
       <div className="tree-row__actions" onClick={(e) => e.stopPropagation()}>
         <button
           className="row-icon"
-          title="Duplicate"
+          title={ui.collections.duplicate}
           onClick={() => duplicateRequest(request.id)}
         >
           <IconCopy width={16} height={16} />
         </button>
         <button
           className="row-icon"
-          title="Rename"
+          title={ui.collections.rename}
           onClick={() => setEditingId(request.id)}
         >
           <IconEdit width={16} height={16} />
         </button>
         <button
           className="row-icon"
-          title="More"
+          title={ui.collections.more}
           onClick={(e) => onContext(e, request.id, 'request')}
         >
           <IconMore width={16} height={16} />
@@ -700,13 +700,13 @@ function ContextMenu({
       {isFolderLike && (
         <>
           <button onClick={() => onAction('add-request')}>
-            <IconFilePlus width={16} height={16} /> Add request
+            <IconFilePlus width={16} height={16} /> {ui.collections.ctxAddRequest}
           </button>
           <button onClick={() => onAction('add-folder')}>
-            <IconFolderPlus width={16} height={16} /> Add folder
+            <IconFolderPlus width={16} height={16} /> {ui.collections.ctxAddFolder}
           </button>
           <button onClick={() => onAction('run')}>
-            <IconRunner width={16} height={16} /> Run folder
+            <IconRunner width={16} height={16} /> {ui.collections.ctxRunFolder}
           </button>
           <div className="ctx-menu__sep" />
         </>
@@ -714,16 +714,16 @@ function ContextMenu({
       {!isFolderLike && (
         <>
           <button onClick={() => onAction('duplicate')}>
-            <IconCopy width={16} height={16} /> Duplicate
+            <IconCopy width={16} height={16} /> {ui.collections.ctxDuplicate}
           </button>
           <div className="ctx-menu__sep" />
         </>
       )}
       <button onClick={() => onAction('rename')}>
-        <IconEdit width={16} height={16} /> Rename
+        <IconEdit width={16} height={16} /> {ui.collections.ctxRename}
       </button>
       <button className="is-danger" onClick={() => onAction('delete')}>
-        <IconTrash width={16} height={16} /> Delete
+        <IconTrash width={16} height={16} /> {ui.collections.ctxDelete}
       </button>
     </div>
   )

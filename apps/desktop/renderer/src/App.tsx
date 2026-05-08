@@ -8,6 +8,7 @@ import { StatusBar } from './components/StatusBar'
 import { useTabsStore } from './store/tabs'
 import { useWorkspaceStore } from './store/workspace'
 import { useThemeStore } from './store/theme'
+import { ui } from './locale/ui'
 
 const LS_SIDEBAR = 'api-tester.sidebarW'
 const LS_SPLIT = 'api-tester.editorSplit'
@@ -145,7 +146,7 @@ export default function App() {
   if (!boot.ui) {
     return (
       <div className="app app--boot">
-        <div className="app__boot">Loading workspace…</div>
+        <div className="app__boot">{ui.app.loadingWorkspace}</div>
       </div>
     )
   }
@@ -160,7 +161,7 @@ export default function App() {
           className="resize-handle resize-handle--col"
           role="separator"
           aria-orientation="vertical"
-          aria-label="Resize collections panel"
+          aria-label={ui.app.resizeCollections}
           onMouseDown={startColResize}
         />
         <main className="app__main">
@@ -177,7 +178,7 @@ export default function App() {
                 className="resize-handle resize-handle--row"
                 role="separator"
                 aria-orientation="horizontal"
-                aria-label="Resize request and response panels"
+                aria-label={ui.app.resizeEditor}
                 onMouseDown={startRowResize}
               />
               <div
@@ -189,10 +190,8 @@ export default function App() {
             </div>
           ) : (
             <div className="app__empty">
-              <p className="app__empty-title">No request open</p>
-              <p className="app__empty-hint">
-                Pick a request in the collection tree, or use the + tab to create one.
-              </p>
+              <p className="app__empty-title">{ui.app.emptyTitle}</p>
+              <p className="app__empty-hint">{ui.app.emptyHint}</p>
             </div>
           )}
         </main>

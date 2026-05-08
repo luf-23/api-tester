@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 import { ThemeCard } from './ThemeCard'
+import { ui } from '../locale/ui'
 import { IconClose, IconPlus, IconSettings } from './icons'
 
 export function TopBar() {
@@ -41,7 +42,7 @@ export function TopBar() {
 
   return (
     <header className="topbar">
-      <div className="tabs" role="tablist" aria-label="Open requests">
+      <div className="tabs" role="tablist" aria-label={ui.topBar.tablist}>
         {openIds.map((id) => {
           const r = getRequest(id)
           if (!r) return null
@@ -72,14 +73,14 @@ export function TopBar() {
                   e.stopPropagation()
                   close(id)
                 }}
-                aria-label={`Close ${r.name}`}
+                aria-label={ui.topBar.closeTab(r.name)}
               >
                 <IconClose width={16} height={16} />
               </button>
             </div>
           )
         })}
-        <button type="button" className="tab tab--add" title="New request" onClick={onNewTab}>
+        <button type="button" className="tab tab--add" title={ui.topBar.newRequest} onClick={onNewTab}>
           <IconPlus width={18} height={18} />
         </button>
       </div>
@@ -88,7 +89,7 @@ export function TopBar() {
           <button
             type="button"
             className={`icon-btn${settingsOpen ? ' is-active' : ''}`}
-            title="Appearance"
+            title={ui.topBar.appearance}
             aria-expanded={settingsOpen}
             aria-haspopup="dialog"
             onClick={() => setSettingsOpen((o) => !o)}
@@ -96,7 +97,7 @@ export function TopBar() {
             <IconSettings />
           </button>
           {settingsOpen && (
-            <div className="topbar-settings__panel" role="dialog" aria-label="Appearance">
+            <div className="topbar-settings__panel" role="dialog" aria-label={ui.topBar.appearancePanel}>
               <ThemeCard />
             </div>
           )}

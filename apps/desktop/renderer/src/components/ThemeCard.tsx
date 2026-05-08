@@ -1,3 +1,4 @@
+import { ui } from '../locale/ui'
 import { useThemeStore, themes } from '../store/theme'
 
 export function ThemeCard() {
@@ -7,7 +8,7 @@ export function ThemeCard() {
   return (
     <div className="theme-card">
       <div className="theme-card__header">
-        <span className="theme-card__title">Theme</span>
+        <span className="theme-card__title">{ui.theme.cardTitle}</span>
         <span className="theme-card__active">{active?.label}</span>
       </div>
       <div className="theme-card__swatches">

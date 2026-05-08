@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Collection, FolderNode, HttpMethod, RequestWithTests } from '@api-tester/shared'
+import { ui } from '../locale/ui'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 import { sendHttp } from '../lib/api'
@@ -15,15 +16,23 @@ import {
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 
 const SUBTABS = [
-  { id: 'params', label: 'Params' },
-  { id: 'headers', label: 'Headers' },
-  { id: 'auth', label: 'Auth' },
-  { id: 'body', label: 'Body' },
-  { id: 'tests', label: 'Tests' },
-  { id: 'pre', label: 'Pre-request Script' },
-  { id: 'settings', label: 'Settings' },
+  { id: 'params' as const, label: ui.request.subtabs.params },
+  { id: 'headers' as const, label: ui.request.subtabs.headers },
+  { id: 'auth' as const, label: ui.request.subtabs.auth },
+  { id: 'body' as const, label: ui.request.subtabs.body },
+  { id: 'tests' as const, label: ui.request.subtabs.tests },
+  { id: 'pre' as const, label: ui.request.subtabs.pre },
+  { id: 'settings' as const, label: ui.request.subtabs.settings },
 ] as const
 type SubtabId = (typeof SUBTABS)[number]['id']
+
+const BODY_MODES = [
+  { id: 'none' as const, label: ui.request.bodyModes.none },
+  { id: 'json' as const, label: ui.request.bodyModes.json },
+  { id: 'text' as const, label: ui.request.bodyModes.text },
+  { id: 'form-urlencoded' as const, label: ui.request.bodyModes['form-urlencoded'] },
+  { id: 'form-data' as const, label: ui.request.bodyModes['form-data'] },
+] as const
 
 function isRequestNode(n: FolderNode | RequestWithTests): n is RequestWithTests {
   return 'method' in n
@@ -55,9 +64,8 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   const setResponse = useTabsStore((s) => s.setResponse)
   const [active, setActive] = useState<SubtabId>('params')
 
-  // Keep URL string in sync with enabled params (UI niceness).
   useEffect(() => {
-    /* no-op; users may edit either side independently. */
+    /* no-op */
   }, [])
 
   const enabledParams = request.params.filter((p) => p.enabled && p.key)
@@ -118,13 +126,13 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           })}
         </div>
         <div className="header-actions">
-          <button className="btn btn--split">
-            <IconSave /> Save <IconChevDown width={14} height={14} />
+          <button type="button" className="btn btn--split">
+            <IconSave /> {ui.request.save} <IconChevDown width={14} height={14} />
           </button>
-          <button className="btn" title="View code">
+          <button type="button" className="btn" title={ui.request.viewCode}>
             <IconCode />
           </button>
-          <button className="btn" title="Rename">
+          <button type="button" className="btn" title={ui.request.rename}>
             <IconEdit />
           </button>
         </div>
@@ -147,14 +155,14 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           className="url-input"
           value={request.url}
           onChange={(e) => update(request.id, { url: e.target.value })}
-          placeholder="https://api.example.com/v1/resource"
+          placeholder={ui.request.urlPlaceholder}
           spellCheck={false}
         />
         <div className="send-group">
-          <button className="btn btn--primary" onClick={onSend}>
-            <IconSend /> Send
+          <button type="button" className="btn btn--primary" onClick={onSend}>
+            <IconSend /> {ui.request.send}
           </button>
-          <button className="send-group__more" title="Send options">
+          <button type="button" className="send-group__more" title={ui.request.sendOptions}>
             <IconChevDown width={16} height={16} />
           </button>
         </div>
@@ -173,6 +181,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           return (
             <button
               key={tab.id}
+              type="button"
               className={`subtab${active === tab.id ? ' is-active' : ''}`}
               onClick={() => setActive(tab.id)}
             >
@@ -183,15 +192,15 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           )
         })}
         <div className="subtabs__spacer" />
-        <button className="subtabs__link">Cookies</button>
+        <button type="button" className="subtabs__link">{ui.request.cookiesLink}</button>
       </nav>
 
       <div className="subpanel">
         {active === 'params' && (
           <>
             <div className="kv__title-row">
-              <h4 style={{ margin: 0 }}>Query Params</h4>
-              <button className="kv__bulk">··· Bulk Edit</button>
+              <h4 style={{ margin: 0 }}>{ui.request.queryParams}</h4>
+              <button type="button" className="kv__bulk">{ui.request.bulkEdit}</button>
             </div>
             <KeyValueEditor
               rows={request.params}
@@ -200,15 +209,20 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           </>
         )}
         {active === 'headers' && (
-          <KeyValueEditor
-            rows={request.headers}
-            onChange={(rows) => setKv(request.id, 'headers', rows)}
-          />
+          <>
+            <div className="kv__title-row">
+              <h4 style={{ margin: 0 }}>{ui.request.headersTitle}</h4>
+            </div>
+            <KeyValueEditor
+              rows={request.headers}
+              onChange={(rows) => setKv(request.id, 'headers', rows)}
+            />
+          </>
         )}
         {active === 'body' && <BodyEditor request={request} />}
         {active === 'auth' && <AuthPlaceholder />}
         {active === 'tests' && <TestsPanel request={request} />}
-        {active === 'pre' && <ScriptPlaceholder name="Pre-request Script" />}
+        {active === 'pre' && <ScriptPlaceholder />}
         {active === 'settings' && <SettingsPlaceholder />}
       </div>
     </section>
@@ -220,7 +234,7 @@ function BodyEditor({ request }: { request: RequestWithTests }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: 12, marginBottom: 10, color: 'var(--text-secondary)' }}>
-        {(['none', 'json', 'text', 'form-urlencoded', 'form-data'] as const).map((mode) => (
+        {BODY_MODES.map(({ id: mode, label }) => (
           <label key={mode} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
             <input
               type="radio"
@@ -228,7 +242,7 @@ function BodyEditor({ request }: { request: RequestWithTests }) {
               checked={request.bodyMode === mode}
               onChange={() => update(request.id, { bodyMode: mode })}
             />
-            <span>{mode}</span>
+            <span>{label}</span>
           </label>
         ))}
       </div>
@@ -236,7 +250,7 @@ function BodyEditor({ request }: { request: RequestWithTests }) {
         <textarea
           value={request.bodyText}
           onChange={(e) => update(request.id, { bodyText: e.target.value })}
-          placeholder={request.bodyMode === 'json' ? '{\n  "key": "value"\n}' : 'plain text body'}
+          placeholder={request.bodyMode === 'json' ? ui.request.bodyPlaceholderJson : ui.request.bodyPlaceholderText}
           style={{
             width: '100%',
             minHeight: 240,
@@ -245,7 +259,7 @@ function BodyEditor({ request }: { request: RequestWithTests }) {
             borderRadius: 8,
             color: 'var(--text-primary)',
             padding: 12,
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: 'var(--font-code)',
             fontSize: 12.5,
             outline: 0,
             resize: 'vertical',
@@ -253,7 +267,7 @@ function BodyEditor({ request }: { request: RequestWithTests }) {
           spellCheck={false}
         />
       )}
-      {request.bodyMode === 'none' && <p className="dim">This request does not have a body.</p>}
+      {request.bodyMode === 'none' && <p className="dim">{ui.request.noBody}</p>}
     </div>
   )
 }
@@ -261,8 +275,8 @@ function BodyEditor({ request }: { request: RequestWithTests }) {
 function AuthPlaceholder() {
   return (
     <div className="dim">
-      <h4>Authorization</h4>
-      <p>Inherit from parent collection or override with Bearer / Basic / API Key presets.</p>
+      <h4>{ui.request.authTitle}</h4>
+      <p>{ui.request.authHint}</p>
     </div>
   )
 }
@@ -270,8 +284,8 @@ function AuthPlaceholder() {
 function TestsPanel({ request }: { request: RequestWithTests }) {
   return (
     <div>
-      <h4>Test Assertions</h4>
-      {request.tests.length === 0 && <p className="dim">No tests defined yet.</p>}
+      <h4>{ui.request.testsTitle}</h4>
+      {request.tests.length === 0 && <p className="dim">{ui.request.noTests}</p>}
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {request.tests.map((t) => (
           <li
@@ -281,7 +295,7 @@ function TestsPanel({ request }: { request: RequestWithTests }) {
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-subtle)',
               borderRadius: 8,
-              fontFamily: '"JetBrains Mono", monospace',
+              fontFamily: 'var(--font-code)',
               fontSize: 12.5,
             }}
           >
@@ -296,11 +310,11 @@ function TestsPanel({ request }: { request: RequestWithTests }) {
   )
 }
 
-function ScriptPlaceholder({ name }: { name: string }) {
+function ScriptPlaceholder() {
   return (
     <div className="dim">
-      <h4>{name}</h4>
-      <p>Run JavaScript before the request is dispatched. Edit in the next iteration.</p>
+      <h4>{ui.request.scriptPre}</h4>
+      <p>{ui.request.scriptHint}</p>
     </div>
   )
 }
@@ -308,8 +322,8 @@ function ScriptPlaceholder({ name }: { name: string }) {
 function SettingsPlaceholder() {
   return (
     <div className="dim">
-      <h4>Request Settings</h4>
-      <p>Timeouts, redirects and SSL verification overrides will live here.</p>
+      <h4>{ui.request.settingsTitle}</h4>
+      <p>{ui.request.settingsHint}</p>
     </div>
   )
 }

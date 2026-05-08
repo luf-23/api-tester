@@ -1,3 +1,4 @@
+import { ui } from '../locale/ui'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 
@@ -19,16 +20,15 @@ export function StatusBar() {
 
   return (
     <footer className="statusbar">
-      <span className="statusbar__section statusbar__section--strong">Local</span>
+      <span className="statusbar__section statusbar__section--strong">{ui.statusBar.local}</span>
       <span className="statusbar__sep" aria-hidden />
       <span className="statusbar__muted">
-        {collections.length} collection{collections.length === 1 ? '' : 's'} · {reqCount}{' '}
-        request{reqCount === 1 ? '' : 's'}
+        {ui.statusBar.collections(collections.length)} · {ui.statusBar.requests(reqCount)}
       </span>
       <span className="statusbar__spacer" />
       {activeId && (
         <span className="statusbar__muted">
-          Tab {openIds.indexOf(activeId) + 1} / {openIds.length}
+          {ui.statusBar.tabIndex(openIds.indexOf(activeId) + 1, openIds.length)}
         </span>
       )}
     </footer>
