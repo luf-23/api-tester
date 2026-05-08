@@ -10,7 +10,7 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3",
-    "postinstall": "electron-rebuild -f -w better-sqlite3"
+    "postinstall": "node -e \"const{execSync}=require('child_process');if(!process.env.CI)execSync('electron-rebuild -f -w better-sqlite3',{stdio:'inherit'})\""
   },
   "dependencies": {
     "@api-tester/domain": "workspace:*",
