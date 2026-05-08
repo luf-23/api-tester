@@ -6,7 +6,6 @@ import type {
   KeyValue,
   RequestWithTests,
 } from '@api-tester/shared'
-import { sampleCollection } from '../lib/seed'
 import { uid } from '../lib/ids'
 
 type Node = FolderNode | RequestWithTests
@@ -175,14 +174,9 @@ interface WorkspaceState {
   importPostmanCollection: (collection: Collection) => void
 }
 
-const initialExpanded: Record<string, boolean> = {
-  [sampleCollection.root.id]: true,
-  fld_users: true,
-}
-
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
-  collections: [sampleCollection],
-  expanded: initialExpanded,
+  collections: [],
+  expanded: {},
   toggleFolder: (id) =>
     set((s) => ({ expanded: { ...s.expanded, [id]: !s.expanded[id] } })),
   expandFolder: (id, value) =>

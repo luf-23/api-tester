@@ -1,8 +1,23 @@
+import { useEffect, useRef, useState } from 'react'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
+import { ThemeCard } from './ThemeCard'
 import { IconChevDown, IconClose, IconEye, IconPlus, IconSettings } from './icons'
 
 export function TopBar() {
+  const settingsWrapRef = useRef<HTMLDivElement>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  useEffect(() => {
+    if (!settingsOpen) return
+    const onPointerDown = (e: PointerEvent) => {
+      const el = settingsWrapRef.current
+      if (el && !el.contains(e.target as Node)) setSettingsOpen(false)
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    return () => window.removeEventListener('pointerdown', onPointerDown)
+  }, [settingsOpen])
+
   const openIds = useTabsStore((s) => s.openIds)
   const activeId = useTabsStore((s) => s.activeId)
   const activate = useTabsStore((s) => s.activate)
@@ -58,9 +73,23 @@ export function TopBar() {
         <button className="icon-btn" title="Variable preview">
           <IconEye />
         </button>
-        <button className="icon-btn" title="Workspace settings">
-          <IconSettings />
-        </button>
+        <div className="topbar-settings" ref={settingsWrapRef}>
+          <button
+            type="button"
+            className={`icon-btn${settingsOpen ? ' is-active' : ''}`}
+            title="Workspace settings"
+            aria-expanded={settingsOpen}
+            aria-haspopup="dialog"
+            onClick={() => setSettingsOpen((o) => !o)}
+          >
+            <IconSettings />
+          </button>
+          {settingsOpen && (
+            <div className="topbar-settings__panel" role="dialog" aria-label="Workspace settings">
+              <ThemeCard />
+            </div>
+          )}
+        </div>
         <div className="avatar" title="Account">AK</div>
       </div>
     </header>

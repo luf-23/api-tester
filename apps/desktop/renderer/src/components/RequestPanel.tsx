@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { HttpMethod, RequestWithTests } from '@api-tester/shared'
+import type { Collection, FolderNode, HttpMethod, RequestWithTests } from '@api-tester/shared'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 import { sendHttp } from '../lib/api'
@@ -25,7 +25,31 @@ const SUBTABS = [
 ] as const
 type SubtabId = (typeof SUBTABS)[number]['id']
 
+function isRequestNode(n: FolderNode | RequestWithTests): n is RequestWithTests {
+  return 'method' in n
+}
+
+function breadcrumbForRequest(collections: Collection[], request: RequestWithTests): string[] {
+  for (const col of collections) {
+    function walk(folder: FolderNode, segments: string[]): string[] | null {
+      for (const child of folder.children) {
+        if (isRequestNode(child)) {
+          if (child.id === request.id) return [...segments, child.name]
+        } else {
+          const hit = walk(child, [...segments, child.name])
+          if (hit) return hit
+        }
+      }
+      return null
+    }
+    const tail = walk(col.root, [])
+    if (tail) return [col.name, ...tail]
+  }
+  return [request.name]
+}
+
 export function RequestPanel({ request }: { request: RequestWithTests }) {
+  const collections = useWorkspaceStore((s) => s.collections)
   const update = useWorkspaceStore((s) => s.updateRequest)
   const setKv = useWorkspaceStore((s) => s.setKv)
   const setResponse = useTabsStore((s) => s.setResponse)
@@ -46,6 +70,11 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
       tests: request.tests.length > 0,
     }),
     [enabledParams.length, enabledHeaders.length, request.headers, request.tests.length]
+  )
+
+  const breadcrumbParts = useMemo(
+    () => breadcrumbForRequest(collections, request),
+    [collections, request]
   )
 
   const onSend = async () => {
@@ -78,11 +107,15 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
     <section className="request">
       <div className="request__header">
         <div className="breadcrumb">
-          <span>Acme API</span>
-          <span>/</span>
-          <span>Users</span>
-          <span>/</span>
-          <b>{request.name}</b>
+          {breadcrumbParts.flatMap((part, i) => {
+            const node =
+              i === breadcrumbParts.length - 1 ? (
+                <b key={`bc-${i}`}>{part}</b>
+              ) : (
+                <span key={`bc-${i}`}>{part}</span>
+              )
+            return i === 0 ? [node] : [<span key={`bc-sep-${i}`}>/</span>, node]
+          })}
         </div>
         <div className="header-actions">
           <button className="btn btn--split">
