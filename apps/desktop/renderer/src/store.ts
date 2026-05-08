@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import type {
-  AssertionRule,
   Collection,
   Environment,
   HistoryEntry,
@@ -10,8 +9,9 @@ import type {
   RequestWithTests,
   WorkspaceMeta,
 } from '@api-tester/shared'
+import { defaultSendSettings } from '@api-tester/shared'
 
-export type TabId = 'params' | 'headers' | 'body' | 'tests'
+export type TabId = 'params' | 'headers' | 'body' | 'settings'
 
 export interface AppState {
   workspace: WorkspaceMeta | null
@@ -72,7 +72,7 @@ export function createBlankDraft(): RequestWithTests {
     bodyMode: 'none',
     bodyText: '',
     bodyFields: [blankKeyValue()],
-    tests: [],
+    sendSettings: defaultSendSettings(),
   }
 }
 
@@ -298,13 +298,4 @@ export function mapDraftMethod(m: string): HttpMethod {
     'OPTIONS',
   ]
   return (allowed.includes(upper as HttpMethod) ? upper : 'GET') as HttpMethod
-}
-
-export function newAssertionRule(): AssertionRule {
-  return {
-    id: newId(),
-    type: 'status',
-    expected: 200,
-    operator: 'eq',
-  }
 }

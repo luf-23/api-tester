@@ -1,10 +1,11 @@
 import { create } from 'zustand'
-import type {
-  Collection,
-  FolderNode,
-  HttpMethod,
-  KeyValue,
-  RequestWithTests,
+import {
+  defaultSendSettings,
+  type Collection,
+  type FolderNode,
+  type HttpMethod,
+  type KeyValue,
+  type RequestWithTests,
 } from '@api-tester/shared'
 import { uid } from '../lib/ids'
 
@@ -129,16 +130,39 @@ function cloneRequest(req: RequestWithTests): RequestWithTests {
     params: dupKv(req.params),
     headers: dupKv(req.headers),
     bodyFields: dupKv(req.bodyFields),
-    tests: req.tests.map((t) => ({ ...t, id: uid('a') })),
   }
 }
 
-/** Common starter headers — users can toggle off or edit. GET keeps Content-Type off to avoid noise. */
+/** Built-in headers — name fixed; enable checkbox and edit value as needed. GET keeps Content-Type off to avoid noise. */
 function defaultHeaders(): KeyValue[] {
   return [
-    { id: uid('kv'), key: 'Accept', value: 'application/json', enabled: true },
-    { id: uid('kv'), key: 'Content-Type', value: 'application/json', enabled: false },
-    { id: uid('kv'), key: 'Authorization', value: '', enabled: false },
+    { id: uid('kv'), key: 'Accept', value: 'application/json', enabled: true, preset: true },
+    { id: uid('kv'), key: 'Content-Type', value: 'application/json', enabled: false, preset: true },
+    {
+      id: uid('kv'),
+      key: 'Authorization',
+      value: '',
+      enabled: false,
+      hidden: true,
+      preset: true,
+    },
+    {
+      id: uid('kv'),
+      key: 'Cache-Control',
+      value: 'no-cache',
+      enabled: false,
+      hidden: true,
+      preset: true,
+    },
+    { id: uid('kv'), key: 'Host', value: '', enabled: false, hidden: true, preset: true },
+    {
+      id: uid('kv'),
+      key: 'User-Agent',
+      value: '',
+      enabled: false,
+      hidden: true,
+      preset: true,
+    },
   ]
 }
 
@@ -153,7 +177,7 @@ function emptyRequest(name = 'New Request', method: HttpMethod = 'GET'): Request
     bodyMode: 'none',
     bodyText: '',
     bodyFields: [],
-    tests: [],
+    sendSettings: defaultSendSettings(),
   }
 }
 
@@ -313,5 +337,5 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 }))
 
 export function emptyKv(): KeyValue {
-  return { id: uid('kv'), key: '', value: '', enabled: true }
+  return { id: uid('kv'), key: '', value: '', enabled: true, hidden: false }
 }

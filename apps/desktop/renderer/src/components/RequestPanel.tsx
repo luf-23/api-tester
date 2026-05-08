@@ -1,19 +1,12 @@
 import { useCallback, useMemo, useState } from 'react'
-import type {
-  AssertionRule,
-  Collection,
-  FolderNode,
-  HttpMethod,
-  RequestWithTests,
-} from '@api-tester/shared'
-import type { AssertionContext } from '@api-tester/domain'
-import { evaluateAssertions } from '@api-tester/domain'
+import type { Collection, FolderNode, RequestWithTests } from '@api-tester/shared'
+import { defaultSendSettings } from '@api-tester/shared'
 import { ui } from '../locale/ui'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 import { sendHttp } from '../lib/api'
-import { uid } from '../lib/ids'
 import { KeyValueEditor } from './KeyValueEditor'
+import { MethodPick } from './MethodPick'
 import {
   IconChevDown,
   IconCode,
@@ -22,14 +15,10 @@ import {
   IconSend,
 } from './icons'
 
-const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
-
 const SUBTABS = [
   { id: 'params' as const, label: ui.request.subtabs.params },
   { id: 'headers' as const, label: ui.request.subtabs.headers },
-  { id: 'auth' as const, label: ui.request.subtabs.auth },
   { id: 'body' as const, label: ui.request.subtabs.body },
-  { id: 'tests' as const, label: ui.request.subtabs.tests },
   { id: 'pre' as const, label: ui.request.subtabs.pre },
   { id: 'settings' as const, label: ui.request.subtabs.settings },
 ] as const
@@ -66,14 +55,6 @@ function breadcrumbForRequest(collections: Collection[], request: RequestWithTes
   return [request.name]
 }
 
-function normalizeHeaderKeys(headers: Record<string, string>): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const [k, v] of Object.entries(headers)) {
-    out[k.toLowerCase()] = v
-  }
-  return out
-}
-
 export function RequestPanel({ request }: { request: RequestWithTests }) {
   const collections = useWorkspaceStore((s) => s.collections)
   const update = useWorkspaceStore((s) => s.updateRequest)
@@ -85,8 +66,16 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
 
   const enabledParams = request.params.filter((p) => p.enabled && p.key)
   const enabledHeaders = request.headers.filter((h) => h.enabled && h.key)
-  const dirty = useMemo(
-    () => ({
+  const dirty = useMemo(() => {
+    const d = defaultSendSettings()
+    const s = request.sendSettings
+    const settingsNonDefault = Boolean(
+      s &&
+        (s.timeoutMs !== d.timeoutMs ||
+          s.maxRedirects !== d.maxRedirects ||
+          s.validateTls !== d.validateTls)
+    )
+    return {
       params: enabledParams.length > 0,
       headers: enabledHeaders.length > 0,
       body:
@@ -95,19 +84,16 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           : request.bodyMode === 'json' || request.bodyMode === 'text'
             ? request.bodyText.trim().length > 0
             : request.bodyFields.some((f) => f.enabled && f.key),
-      auth: request.headers.some((h) => h.enabled && h.key.toLowerCase() === 'authorization'),
-      tests: request.tests.length > 0,
-    }),
-    [
-      enabledParams.length,
-      enabledHeaders.length,
-      request.bodyFields,
-      request.bodyMode,
-      request.bodyText,
-      request.headers,
-      request.tests.length,
-    ]
-  )
+      settings: settingsNonDefault,
+    }
+  }, [
+    enabledParams.length,
+    enabledHeaders.length,
+    request.bodyFields,
+    request.bodyMode,
+    request.bodyText,
+    request.sendSettings,
+  ])
 
   const breadcrumbParts = useMemo(
     () => breadcrumbForRequest(collections, request),
@@ -142,19 +128,6 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
     setResponse(request.id, { loading: true })
     try {
       const out = await sendHttp(request)
-      let ctx: AssertionContext
-      if (out.error) {
-        ctx = { status: 0, headers: {}, bodyText: '' }
-      } else {
-        ctx = {
-          status: out.response.status,
-          headers: normalizeHeaderKeys(out.response.headers),
-          bodyText: out.response.bodyText,
-        }
-      }
-      const assertionResults =
-        request.tests.length > 0 ? evaluateAssertions(request.tests, ctx) : undefined
-
       setResponse(request.id, {
         loading: false,
         response: {
@@ -167,17 +140,12 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
         },
         error: out.error,
         receivedAt: Date.now(),
-        assertionResults,
       })
     } catch (e) {
-      const ctx: AssertionContext = { status: 0, headers: {}, bodyText: '' }
-      const assertionResults =
-        request.tests.length > 0 ? evaluateAssertions(request.tests, ctx) : undefined
       setResponse(request.id, {
         loading: false,
         error: e instanceof Error ? e.message : String(e),
         receivedAt: Date.now(),
-        assertionResults,
       })
     }
   }
@@ -211,18 +179,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
       </div>
 
       <div className="url-bar">
-        <div className="method-pick">
-          <select
-            value={request.method}
-            onChange={(e) => update(request.id, { method: e.target.value as HttpMethod })}
-            style={{ color: `var(--method-${request.method.toLowerCase()})` }}
-          >
-            {METHODS.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-          <IconChevDown width={16} height={16} />
-        </div>
+        <MethodPick value={request.method} onChange={(m) => update(request.id, { method: m })} />
         <input
           className="url-input"
           value={request.url}
@@ -242,16 +199,11 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
 
       <nav className="subtabs">
         {SUBTABS.map((tab) => {
-          const count = tab.id === 'headers'
-            ? enabledHeaders.length
-            : tab.id === 'tests'
-              ? request.tests.length
-              : 0
+          const count = tab.id === 'headers' ? enabledHeaders.length : 0
           const dot = tab.id === 'params' ? dirty.params
             : tab.id === 'body' ? dirty.body
-              : tab.id === 'auth' ? dirty.auth
-                : tab.id === 'tests' ? dirty.tests
-                  : false
+              : tab.id === 'settings' ? dirty.settings
+                : false
           return (
             <button
               key={tab.id}
@@ -290,14 +242,13 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
             <KeyValueEditor
               rows={request.headers}
               onChange={(rows) => setKv(request.id, 'headers', rows)}
+              collapseHidden
             />
           </>
         )}
         {active === 'body' && <BodyEditor request={request} />}
-        {active === 'auth' && <AuthPlaceholder />}
-        {active === 'tests' && <TestsPanel request={request} />}
         {active === 'pre' && <ScriptPlaceholder />}
-        {active === 'settings' && <SettingsPlaceholder />}
+        {active === 'settings' && <RequestSendSettingsPanel request={request} />}
       </div>
     </section>
   )
@@ -363,164 +314,68 @@ function BodyEditor({ request }: { request: RequestWithTests }) {
   )
 }
 
-function AuthPlaceholder() {
-  return (
-    <div className="dim">
-      <h4>{ui.request.authTitle}</h4>
-      <p>{ui.request.authHint}</p>
-    </div>
-  )
-}
-
-const ASSERTION_TYPES: AssertionRule['type'][] = ['status', 'header', 'body_contains', 'json_path']
-const OPS_EQ_EXISTS: NonNullable<AssertionRule['operator']>[] = ['eq', 'exists']
-
-function defaultRule(kind: AssertionRule['type']): AssertionRule {
-  switch (kind) {
-    case 'status':
-      return { id: uid('a'), type: 'status', operator: 'eq', expected: 200 }
-    case 'header':
-      return {
-        id: uid('a'),
-        type: 'header',
-        target: 'content-type',
-        operator: 'exists',
-      }
-    case 'body_contains':
-      return { id: uid('a'), type: 'body_contains', operator: 'contains', expected: '' }
-    case 'json_path':
-      return {
-        id: uid('a'),
-        type: 'json_path',
-        target: '$',
-        operator: 'exists',
-      }
-    default:
-      return { id: uid('a'), type: 'status', operator: 'eq', expected: 200 }
-  }
-}
-
-function TestsPanel({ request }: { request: RequestWithTests }) {
+function RequestSendSettingsPanel({ request }: { request: RequestWithTests }) {
   const update = useWorkspaceStore((s) => s.updateRequest)
-
-  const setTests = (next: AssertionRule[]) => update(request.id, { tests: next })
-
-  const patchRule = (id: string, patch: Partial<AssertionRule>) => {
-    setTests(request.tests.map((t) => (t.id === id ? ({ ...t, ...patch } as AssertionRule) : t)))
+  const merged = { ...defaultSendSettings(), ...request.sendSettings }
+  const patch = (partial: Partial<typeof merged>) => {
+    update(request.id, { sendSettings: { ...merged, ...partial } })
   }
+  const timeoutSeconds =
+    merged.timeoutMs === 0 ? 0 : Math.min(3600, Math.round(merged.timeoutMs / 1000))
 
   return (
-    <div className="tests-editor">
-      <div className="kv__title-row">
-        <h4 style={{ margin: 0 }}>{ui.request.testsTitle}</h4>
-        <button
-          type="button"
-          className="kv__bulk"
-          onClick={() => setTests([...request.tests, defaultRule('status')])}
-        >
-          {ui.request.testsAdd}
-        </button>
+    <div className="request-settings">
+      <h4 className="request-settings__title">{ui.request.settingsTitle}</h4>
+      <p className="request-settings__intro dim">{ui.request.settingsSendIntro}</p>
+
+      <div className="request-settings__grid">
+        <label className="request-settings__field">
+          <span className="request-settings__label">{ui.request.settingsTimeout}</span>
+          <input
+            type="number"
+            min={0}
+            max={3600}
+            step={1}
+            value={timeoutSeconds}
+            onChange={(e) => {
+              const sec = Number.parseInt(e.target.value, 10)
+              const v = Number.isFinite(sec) ? Math.max(0, Math.min(3600, sec)) : 0
+              patch({ timeoutMs: v * 1000 })
+            }}
+            className="request-settings__input"
+          />
+          <span className="request-settings__hint muted">{ui.request.settingsTimeoutHint}</span>
+        </label>
+
+        <label className="request-settings__field">
+          <span className="request-settings__label">{ui.request.settingsRedirects}</span>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={merged.maxRedirects}
+            onChange={(e) => {
+              const n = Number.parseInt(e.target.value, 10)
+              patch({
+                maxRedirects: Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0,
+              })
+            }}
+            className="request-settings__input"
+          />
+          <span className="request-settings__hint muted">{ui.request.settingsRedirectsHint}</span>
+        </label>
+
+        <label className="request-settings__field request-settings__field--check">
+          <input
+            type="checkbox"
+            checked={merged.validateTls}
+            onChange={(e) => patch({ validateTls: e.target.checked })}
+          />
+          <span className="request-settings__check-label">{ui.request.settingsTls}</span>
+        </label>
+        <p className="request-settings__hint muted request-settings__tls-hint">{ui.request.settingsTlsHint}</p>
       </div>
-      <p className="dim" style={{ margin: '0 0 14px', fontSize: 12 }}>
-        {ui.request.testsHint}
-      </p>
-      {request.tests.length === 0 && <p className="dim">{ui.request.noTests}</p>}
-      <ul className="tests-editor__list">
-        {request.tests.map((t) => (
-          <li key={t.id} className="tests-editor__row">
-            <div className="tests-editor__grid">
-              <label className="tests-editor__field">
-                <span className="tests-editor__label">{ui.request.testsType}</span>
-                <select
-                  value={t.type}
-                  onChange={(e) => {
-                    const kind = e.target.value as AssertionRule['type']
-                    setTests(request.tests.map((x) => (x.id === t.id ? defaultRule(kind) : x)))
-                  }}
-                >
-                  {ASSERTION_TYPES.map((kind) => (
-                    <option key={kind} value={kind}>
-                      {ui.request.testTypes[kind]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {(t.type === 'header' || t.type === 'json_path') && (
-                <label className="tests-editor__field">
-                  <span className="tests-editor__label">{ui.request.testsTarget}</span>
-                  <input
-                    type="text"
-                    value={t.target ?? ''}
-                    onChange={(e) => patchRule(t.id, { target: e.target.value })}
-                    placeholder={t.type === 'json_path' ? '$.path' : 'Header-Name'}
-                    spellCheck={false}
-                  />
-                </label>
-              )}
-              {(t.type === 'header' || t.type === 'json_path') && (
-                <label className="tests-editor__field">
-                  <span className="tests-editor__label">{ui.request.testsOperator}</span>
-                  <select
-                    value={t.operator ?? 'eq'}
-                    onChange={(e) =>
-                      patchRule(t.id, { operator: e.target.value as AssertionRule['operator'] })
-                    }
-                  >
-                    {OPS_EQ_EXISTS.map((op) => (
-                      <option key={op} value={op}>
-                        {op}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {(t.type === 'status' ||
-                t.type === 'body_contains' ||
-                ((t.type === 'header' || t.type === 'json_path') && t.operator !== 'exists')) &&
-                (t.type === 'status' ? (
-                  <label className="tests-editor__field tests-editor__field--grow">
-                    <span className="tests-editor__label">{ui.request.testsExpected}</span>
-                    <input
-                      type="number"
-                      value={
-                        typeof t.expected === 'number' && Number.isFinite(t.expected)
-                          ? t.expected
-                          : 200
-                      }
-                      min={100}
-                      max={599}
-                      onChange={(e) => {
-                        const n = Number.parseInt(e.target.value, 10)
-                        patchRule(t.id, {
-                          expected: Number.isFinite(n) ? n : 200,
-                        })
-                      }}
-                    />
-                  </label>
-                ) : (
-                  <label className="tests-editor__field tests-editor__field--grow">
-                    <span className="tests-editor__label">{ui.request.testsExpected}</span>
-                    <input
-                      type="text"
-                      value={t.expected === undefined ? '' : String(t.expected)}
-                      onChange={(e) => patchRule(t.id, { expected: e.target.value })}
-                      spellCheck={false}
-                    />
-                  </label>
-                ))}
-              <div className="tests-editor__field tests-editor__actions">
-                <button
-                  type="button"
-                  className="kv__bulk"
-                  onClick={() => setTests(request.tests.filter((x) => x.id !== t.id))}
-                >
-                  {ui.request.testsRemoveRow}
-                </button>
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }
@@ -530,15 +385,6 @@ function ScriptPlaceholder() {
     <div className="dim">
       <h4>{ui.request.scriptPre}</h4>
       <p>{ui.request.scriptHint}</p>
-    </div>
-  )
-}
-
-function SettingsPlaceholder() {
-  return (
-    <div className="dim">
-      <h4>{ui.request.settingsTitle}</h4>
-      <p>{ui.request.settingsHint}</p>
     </div>
   )
 }

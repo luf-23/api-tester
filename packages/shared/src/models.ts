@@ -16,6 +16,28 @@ export interface KeyValue {
   key: string
   value: string
   enabled: boolean
+  /** When true (headers UI only), row is folded under “show hidden headers” until expanded. */
+  hidden?: boolean
+  /** Built-in header row: header name fixed; value still editable when enabling the row. */
+  preset?: boolean
+}
+
+/** Per-request options passed to the HTTP client when sending. */
+export interface RequestSendSettings {
+  /** Request timeout in milliseconds. Use 0 for no limit (axios behavior). */
+  timeoutMs: number
+  /** Maximum redirects to follow; 0 disables redirects. */
+  maxRedirects: number
+  /** When false, TLS certificate verification is disabled (dev / self-signed only). */
+  validateTls: boolean
+}
+
+export function defaultSendSettings(): RequestSendSettings {
+  return {
+    timeoutMs: 120_000,
+    maxRedirects: 5,
+    validateTls: true,
+  }
 }
 
 export interface RequestDraft {
@@ -30,6 +52,8 @@ export interface RequestDraft {
   bodyText: string
   /** x-www-form-urlencoded & form-data store same shape */
   bodyFields: KeyValue[]
+  /** Send / network behavior; omitted entries use defaults at runtime. */
+  sendSettings?: RequestSendSettings
 }
 
 export interface HttpResponseView {
@@ -60,7 +84,6 @@ export interface AssertionRule {
 
 export interface RequestWithTests extends RequestDraft {
   preRequestScript?: string
-  tests: AssertionRule[]
 }
 
 export interface FolderNode {

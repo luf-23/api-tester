@@ -6,7 +6,6 @@ import type {
   RunResultItem,
 } from '@api-tester/shared'
 import { applyVariablesToRequest, mergeVariables } from './variables'
-import { runAssertions } from './assertions'
 
 export interface ExecuteRequestFn {
   (req: RequestWithTests): Promise<{
@@ -54,19 +53,12 @@ export async function runCollection(args: {
             if (args.stopOnFailure) return false
             continue
           }
-          const assertion = runAssertions(req.tests, {
-            status: res.status,
-            headers: normalizeHeaders(res.headers),
-            bodyText: res.bodyText,
-          })
           items.push({
             requestId: req.id,
             requestName: req.name,
-            ok: assertion.ok,
+            ok: true,
             durationMs,
-            assertionFailures: assertion.failures,
           })
-          if (!assertion.ok && args.stopOnFailure) return false
         } catch (e) {
           items.push({
             requestId: req.id,
@@ -84,12 +76,4 @@ export async function runCollection(args: {
 
   await walk(args.collection.root)
   return items
-}
-
-function normalizeHeaders(h: Record<string, string>): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const [k, v] of Object.entries(h)) {
-    out[k.toLowerCase()] = v
-  }
-  return out
 }

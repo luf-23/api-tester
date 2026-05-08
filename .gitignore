@@ -10,6 +10,7 @@ release
 .env.*
 !.env.example
 coverage
+*.tsbuildinfo
 *.log
 .idea
 .vscode/*

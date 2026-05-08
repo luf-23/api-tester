@@ -1,6 +1,12 @@
 import axios, { type AxiosRequestConfig } from 'axios'
 import FormData from 'form-data'
-import type { HttpResponseView, RequestDraft } from '@api-tester/shared'
+import https from 'node:https'
+import {
+  defaultSendSettings,
+  type HttpResponseView,
+  type RequestDraft,
+  type RequestSendSettings,
+} from '@api-tester/shared'
 
 export interface SendResult {
   response: HttpResponseView
@@ -16,6 +22,13 @@ function buildUrlWithParams(baseUrl: string, params: RequestDraft['params']): st
   return u.toString()
 }
 
+function effectiveSendSettings(draft: RequestDraft): RequestSendSettings {
+  const base = defaultSendSettings()
+  const s = draft.sendSettings
+  if (!s) return base
+  return { ...base, ...s }
+}
+
 export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
   const url = buildUrlWithParams(draft.url, draft.params)
   const headers: Record<string, string> = {}
@@ -24,16 +37,20 @@ export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
     headers[h.key] = h.value
   }
 
+  const send = effectiveSendSettings(draft)
   const started = Date.now()
   const config: AxiosRequestConfig = {
     method: draft.method,
     url,
     headers,
     validateStatus: () => true,
-    maxRedirects: 5,
-    timeout: 120_000,
+    maxRedirects: send.maxRedirects,
+    timeout: send.timeoutMs === 0 ? 0 : send.timeoutMs,
     responseType: 'text',
     transformResponse: [(data) => data],
+  }
+  if (!send.validateTls) {
+    config.httpsAgent = new https.Agent({ rejectUnauthorized: false })
   }
 
   if (draft.method !== 'GET' && draft.method !== 'HEAD') {

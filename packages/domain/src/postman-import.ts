@@ -83,7 +83,6 @@ function mapRequest(obj: Record<string, unknown>): RequestWithTests {
       bodyMode: 'none',
       bodyText: '',
       bodyFields: [],
-      tests: [],
     }
   }
   const method = String(req.method ?? 'GET').toUpperCase() as HttpMethod
@@ -111,7 +110,6 @@ function mapRequest(obj: Record<string, unknown>): RequestWithTests {
     bodyMode,
     bodyText,
     bodyFields,
-    tests: [],
   }
 }
 

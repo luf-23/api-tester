@@ -5,6 +5,14 @@ export const keyValueSchema = z.object({
   key: z.string(),
   value: z.string(),
   enabled: z.boolean(),
+  hidden: z.boolean().optional(),
+  preset: z.boolean().optional(),
+})
+
+export const requestSendSettingsSchema = z.object({
+  timeoutMs: z.number().nonnegative().max(3_600_000),
+  maxRedirects: z.number().int().min(0).max(100),
+  validateTls: z.boolean(),
 })
 
 export const requestDraftSchema = z
@@ -18,6 +26,7 @@ export const requestDraftSchema = z
     bodyMode: z.enum(['none', 'json', 'text', 'form-urlencoded', 'form-data']),
     bodyText: z.string(),
     bodyFields: z.array(keyValueSchema),
+    sendSettings: requestSendSettingsSchema.optional(),
   })
   .passthrough()
 
@@ -29,17 +38,8 @@ export const sendHttpRequestSchema = z.object({
 
 export type SendHttpRequestInput = z.infer<typeof sendHttpRequestSchema>
 
-export const assertionRuleSchema = z.object({
-  id: z.string(),
-  type: z.enum(['status', 'header', 'body_contains', 'json_path']),
-  target: z.string().optional(),
-  expected: z.union([z.string(), z.number()]).optional(),
-  operator: z.enum(['eq', 'contains', 'exists']).optional(),
-})
-
 export const requestWithTestsSchema = requestDraftSchema.extend({
   preRequestScript: z.string().optional(),
-  tests: z.array(assertionRuleSchema),
 })
 
 export const collectionRunSchema = z.object({

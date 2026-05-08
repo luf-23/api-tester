@@ -1,7 +1,5 @@
-import type { AssertionResultItem } from '@api-tester/domain'
 import { useMemo, useState } from 'react'
 import { ui } from '../locale/ui'
-import { useWorkspaceStore } from '../store/workspace'
 import { useTabsStore } from '../store/tabs'
 import { formatBytes, formatDuration, safeParseJson, statusClass, tryFormatJson } from '../lib/format'
 import { JsonView } from './JsonView'
@@ -11,7 +9,6 @@ const SECTIONS = [
   ui.response.sections.body,
   ui.response.sections.cookies,
   ui.response.sections.headers,
-  ui.response.sections.tests,
 ] as const
 type Section = (typeof SECTIONS)[number]
 
@@ -39,13 +36,11 @@ function emptySectionCounts(): Record<Section, number> {
     [SECTIONS[0]]: 0,
     [SECTIONS[1]]: 0,
     [SECTIONS[2]]: 0,
-    [SECTIONS[3]]: 0,
   }
 }
 
 export function ResponsePanel({ requestId }: Props) {
   const state = useTabsStore((s) => s.responses[requestId])
-  const testRuleCount = useWorkspaceStore((s) => s.getRequest(requestId)?.tests.length ?? 0)
   const [section, setSection] = useState<Section>(SECTIONS[0])
   const [view, setView] = useState<ViewTab>(VIEW_TABS[0])
 
@@ -54,14 +49,12 @@ export function ResponsePanel({ requestId }: Props) {
     if (!response) return emptySectionCounts()
     const headerCount = Object.keys(response.headers).length
     const cookies = (response.headers['set-cookie'] ?? '').split(',').filter(Boolean).length
-    const testsCount = state?.assertionResults?.length ?? 0
     return {
       [SECTIONS[0]]: 0,
       [SECTIONS[1]]: cookies || (headerCount ? 2 : 0),
       [SECTIONS[2]]: headerCount,
-      [SECTIONS[3]]: testsCount,
     } satisfies Record<Section, number>
-  }, [response, state?.assertionResults?.length])
+  }, [response])
 
   if (!response && !state?.loading) {
     if (state?.error) {
@@ -154,12 +147,6 @@ export function ResponsePanel({ requestId }: Props) {
           )}
           {section === SECTIONS[2] && <HeadersList headers={r.headers} />}
           {section === SECTIONS[1] && <CookiesList headers={r.headers} />}
-          {section === SECTIONS[3] && (
-            <TestResultsList
-              assertionResults={state?.assertionResults}
-              testRuleCount={testRuleCount}
-            />
-          )}
         </div>
         <ResponseExplorer json={json} />
       </div>
@@ -189,47 +176,6 @@ function CookiesList({ headers }: { headers: Record<string, string> }) {
       {rows.map((c, i) => (
         <li key={i} className="response__cookie-item">
           {c}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function TestResultsList({
-  assertionResults,
-  testRuleCount,
-}: {
-  assertionResults?: AssertionResultItem[]
-  testRuleCount: number
-}) {
-  if (testRuleCount === 0) {
-    return (
-      <div className="response__mono-scroll dim" style={{ padding: 16 }}>
-        {ui.response.testsNoneDefined}
-      </div>
-    )
-  }
-  if (!assertionResults || assertionResults.length === 0) {
-    return (
-      <div className="response__mono-scroll dim" style={{ padding: 16 }}>
-        {ui.response.testsNoRunYet}
-      </div>
-    )
-  }
-  return (
-    <ul className="response__tests-list">
-      {assertionResults.map((it) => (
-        <li key={it.ruleId} className="response__test-item">
-          <span
-            className="response__test-dot"
-            style={{
-              background: it.ok ? 'var(--status-2xx)' : 'var(--status-5xx)',
-            }}
-          />
-          <span className="response__test-pass">{it.ok ? ui.response.pass : ui.response.fail}</span>
-          <span className="muted response__test-detail">
-            {it.message ?? (it.ok ? '—' : '')}
-          </span>
         </li>
       ))}
     </ul>
