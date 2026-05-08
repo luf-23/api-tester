@@ -256,7 +256,7 @@ function BodyEditor({ request }: { request: RequestWithTests }) {
             minHeight: 240,
             background: 'var(--bg-panel)',
             border: '1px solid var(--border-subtle)',
-            borderRadius: 8,
+            borderRadius: 4,
             color: 'var(--text-primary)',
             padding: 12,
             fontFamily: 'var(--font-code)',
@@ -294,7 +294,7 @@ function TestsPanel({ request }: { request: RequestWithTests }) {
               padding: '10px 12px',
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-subtle)',
-              borderRadius: 8,
+              borderRadius: 4,
               fontFamily: 'var(--font-code)',
               fontSize: 12.5,
             }}

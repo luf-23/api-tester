@@ -448,7 +448,10 @@ function FolderRow({
             onCancel={() => setEditingId(null)}
           />
         ) : (
-          <span className="tree-row__name" onDoubleClick={() => setEditingId(node.id)}>
+          <span
+            className="tree-row__name"
+            onDoubleClick={isCollectionRoot ? undefined : () => setEditingId(node.id)}
+          >
             {node.name}
           </span>
         )}
