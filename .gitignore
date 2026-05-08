@@ -13,6 +13,7 @@ apps/desktop/api-tester-data/
 !.env.example
 coverage
 *.tsbuildinfo
+apps/desktop/tsconfig.tsbuildinfo
 *.log
 .idea
 .vscode/*
