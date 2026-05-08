@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { RequestDraft } from '@api-tester/shared'
+import type { Collection, RequestDraft } from '@api-tester/shared'
 
 declare global {
   interface Window {
@@ -22,6 +22,8 @@ declare global {
       workspaceGet: () => Promise<unknown>
       workspaceSaveMeta: (meta: unknown) => Promise<{ ok: boolean }>
       collectionsList: () => Promise<unknown[]>
+      collectionsGetAll: () => Promise<Collection[]>
+      collectionsSaveAll: (cols: Collection[]) => Promise<{ ok: boolean }>
       collectionGet: (id: string) => Promise<unknown>
       collectionSave: (col: unknown) => Promise<{ ok: boolean }>
       collectionDelete: (id: string) => Promise<{ ok: boolean }>

@@ -28,7 +28,7 @@ export function KeyValueEditor({
     <div className="kv">
       <div className="kv__row kv__head">
         <div className="kv__cell kv__cell--check">
-          <IconCheck width={12} height={12} />
+          <IconCheck width={14} height={14} />
         </div>
         <div className="kv__cell">{keyLabel}</div>
         <div className="kv__cell">{valueLabel}</div>
@@ -74,13 +74,13 @@ export function KeyValueEditor({
           {!withDescription && <div className="kv__cell" />}
           <div className="kv__cell kv__cell--check">
             <button className="kv__more" onClick={() => remove(idx)} aria-label="Row menu">
-              <IconMore width={14} height={14} />
+              <IconMore width={16} height={16} />
             </button>
           </div>
         </div>
       ))}
       <button className="kv__add" onClick={add}>
-        <IconPlus width={14} height={14} /> Add parameter
+        <IconPlus width={16} height={16} /> Add parameter
       </button>
     </div>
   )

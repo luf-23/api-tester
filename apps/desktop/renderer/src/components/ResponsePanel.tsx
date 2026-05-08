@@ -40,7 +40,7 @@ export function ResponsePanel({ requestId }: Props) {
     return (
       <section className="response">
         <div className="response__head">
-          <span className="muted" style={{ fontSize: 12 }}>No response yet — press Send.</span>
+          <span className="muted">No response yet — press Send.</span>
         </div>
       </section>
     )
@@ -50,7 +50,7 @@ export function ResponsePanel({ requestId }: Props) {
     return (
       <section className="response">
         <div className="response__head">
-          <span className="muted" style={{ fontSize: 12 }}>Sending request…</span>
+          <span className="muted">Sending request…</span>
         </div>
       </section>
     )
@@ -106,7 +106,7 @@ export function ResponsePanel({ requestId }: Props) {
           </div>
           {section === 'Body' && (
             view === 'Raw' ? (
-              <pre style={{ margin: 0, padding: '8px 16px', overflow: 'auto', fontFamily: '"JetBrains Mono", monospace', fontSize: 12.5, color: 'var(--text-primary)' }}>{r.bodyText}</pre>
+              <pre className="response__raw-pre">{r.bodyText}</pre>
             ) : (
               <JsonView text={formatted.pretty} />
             )
@@ -124,19 +124,11 @@ export function ResponsePanel({ requestId }: Props) {
 function HeadersList({ headers }: { headers: Record<string, string> }) {
   const rows = Object.entries(headers)
   return (
-    <div style={{ overflow: 'auto', flex: 1, fontFamily: '"JetBrains Mono", monospace', fontSize: 12.5 }}>
+    <div className="response__mono-scroll">
       {rows.map(([k, v]) => (
-        <div
-          key={k}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '220px 1fr',
-            padding: '6px 16px',
-            borderBottom: '1px solid var(--border-subtle)',
-          }}
-        >
+        <div key={k} className="response__headers-row">
           <span className="muted">{k}</span>
-          <span style={{ color: 'var(--text-primary)' }}>{v}</span>
+          <span>{v}</span>
         </div>
       ))}
     </div>
@@ -147,19 +139,11 @@ function CookiesList({ headers }: { headers: Record<string, string> }) {
   const raw = headers['set-cookie']
   const rows = raw ? raw.split(',').map((c) => c.trim()) : ['session=abcd1234; Path=/; HttpOnly', 'csrf=xyz; Path=/; Secure']
   return (
-    <ul style={{ listStyle: 'none', padding: 16, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <ul className="response__cookies-list">
       {rows.map((c, i) => (
-        <li
-          key={i}
-          style={{
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 8,
-            padding: '8px 12px',
-            fontFamily: '"JetBrains Mono", monospace',
-            fontSize: 12.5,
-          }}
-        >{c}</li>
+        <li key={i} className="response__cookie-item">
+          {c}
+        </li>
       ))}
     </ul>
   )
@@ -172,29 +156,17 @@ function TestResults() {
     { name: 'Response body has data array', ok: true },
   ]
   return (
-    <ul style={{ listStyle: 'none', padding: 16, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <ul className="response__tests-list">
       {items.map((it, i) => (
-        <li
-          key={i}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '8px 12px',
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 8,
-            fontSize: 12.5,
-          }}
-        >
+        <li key={i} className="response__test-item">
           <span
+            className="response__test-dot"
             style={{
-              width: 8, height: 8, borderRadius: '50%',
               background: it.ok ? 'var(--status-2xx)' : 'var(--status-5xx)',
             }}
           />
           <span>{it.name}</span>
-          <span className="muted" style={{ marginLeft: 'auto', fontSize: 11 }}>
-            {it.ok ? 'PASS' : 'FAIL'}
-          </span>
+          <span className="muted response__test-pass">{it.ok ? 'PASS' : 'FAIL'}</span>
         </li>
       ))}
     </ul>
@@ -221,7 +193,7 @@ function ExplorerNode({ name, value, depth }: ExplorerNodeProps) {
       <div className="explorer__node" style={{ paddingLeft: depth * 12 }}>
         <span className="explorer__chev" style={{ visibility: 'hidden' }} />
         <span className="explorer__key">{name}:</span>
-        <span className="muted" style={{ fontFamily: '"JetBrains Mono", monospace' }}>
+        <span className="muted font-code">
           {value === null ? 'null' : typeof value === 'string' ? `"${truncate(value)}"` : String(value)}
         </span>
         <span className="explorer__type">{describeType(value)}</span>
@@ -272,10 +244,10 @@ function ResponseExplorer({ json }: { json: unknown }) {
     <aside className="explorer">
       <div className="explorer__head">
         <span>Response Explorer</span>
-        <IconChevDown width={12} height={12} />
+        <IconChevDown width={14} height={14} />
       </div>
       <div className="explorer__search">
-        <IconSearch width={12} height={12} />
+        <IconSearch width={16} height={16} />
         <input placeholder="Search response" />
       </div>
       <div className="explorer__tree">

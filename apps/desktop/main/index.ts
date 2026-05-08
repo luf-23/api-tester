@@ -30,8 +30,10 @@ const mockCtl = new MockServerController()
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 840,
+    width: 1440,
+    height: 900,
+    minWidth: 960,
+    minHeight: 640,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.mjs'),
@@ -80,6 +82,11 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle(ipcChannels.collectionsList, async () => store!.listCollections())
+  ipcMain.handle(ipcChannels.collectionsGetAll, async () => store!.getAllCollections())
+  ipcMain.handle(ipcChannels.collectionsSaveAll, async (_e, cols: unknown) => {
+    store!.saveAllCollections(cols as Collection[])
+    return { ok: true }
+  })
   ipcMain.handle(ipcChannels.collectionGet, async (_e, id: string) => store!.getCollection(id))
   ipcMain.handle(ipcChannels.collectionSave, async (_e, col: unknown) => {
     store!.saveCollection(col as Collection)

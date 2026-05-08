@@ -76,6 +76,16 @@ export class WorkspaceStore {
     return this.readData().collections.map((c) => ({ id: c.id, name: c.name }))
   }
 
+  getAllCollections(): Collection[] {
+    return this.readData().collections.map((c) => structuredClone(c))
+  }
+
+  saveAllCollections(collections: Collection[]): void {
+    const data = this.readData()
+    data.collections = collections.map((c) => structuredClone(c))
+    this.writeData(data)
+  }
+
   getCollection(id: string): Collection | undefined {
     return this.readData().collections.find((c) => c.id === id)
   }

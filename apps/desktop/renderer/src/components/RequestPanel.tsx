@@ -119,7 +119,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
         </div>
         <div className="header-actions">
           <button className="btn btn--split">
-            <IconSave /> Save <IconChevDown width={12} height={12} />
+            <IconSave /> Save <IconChevDown width={14} height={14} />
           </button>
           <button className="btn" title="View code">
             <IconCode />
@@ -141,7 +141,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
               <option key={m} value={m}>{m}</option>
             ))}
           </select>
-          <IconChevDown width={14} height={14} />
+          <IconChevDown width={16} height={16} />
         </div>
         <input
           className="url-input"
@@ -155,7 +155,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
             <IconSend /> Send
           </button>
           <button className="send-group__more" title="Send options">
-            <IconChevDown width={14} height={14} />
+            <IconChevDown width={16} height={16} />
           </button>
         </div>
       </div>

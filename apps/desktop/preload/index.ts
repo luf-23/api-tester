@@ -10,6 +10,9 @@ const api = {
   workspaceSaveMeta: (meta: unknown) =>
     ipcRenderer.invoke(ipcChannels.workspaceSaveMeta, meta),
   collectionsList: () => ipcRenderer.invoke(ipcChannels.collectionsList),
+  collectionsGetAll: () => ipcRenderer.invoke(ipcChannels.collectionsGetAll),
+  collectionsSaveAll: (cols: unknown) =>
+    ipcRenderer.invoke(ipcChannels.collectionsSaveAll, cols),
   collectionSave: (col: unknown) => ipcRenderer.invoke(ipcChannels.collectionSave, col),
   collectionDelete: (id: string) => ipcRenderer.invoke(ipcChannels.collectionDelete, id),
   collectionGet: (id: string) => ipcRenderer.invoke(ipcChannels.collectionGet, id),

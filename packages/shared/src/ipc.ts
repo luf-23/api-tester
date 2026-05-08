@@ -71,6 +71,8 @@ export const ipcChannels = {
   workspaceGet: 'workspace:get',
   workspaceSaveMeta: 'workspace:saveMeta',
   collectionsList: 'collections:list',
+  collectionsGetAll: 'collections:getAll',
+  collectionsSaveAll: 'collections:saveAll',
   collectionGet: 'collection:get',
   collectionSave: 'collection:save',
   collectionDelete: 'collection:delete',

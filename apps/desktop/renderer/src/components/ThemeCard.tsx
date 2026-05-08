@@ -1,5 +1,4 @@
 import { useThemeStore, themes } from '../store/theme'
-import { IconSparkles } from './icons'
 
 export function ThemeCard() {
   const themeId = useThemeStore((s) => s.themeId)
@@ -23,9 +22,6 @@ export function ThemeCard() {
           />
         ))}
       </div>
-      <button type="button" className="theme-card__cta">
-        <IconSparkles width={14} height={14} /> Customize theme
-      </button>
     </div>
   )
 }

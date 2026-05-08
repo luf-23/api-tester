@@ -32,7 +32,6 @@ import {
   IconSearch,
   IconStar,
   IconTrash,
-  IconWorkspace,
 } from './icons'
 
 function isRequest(n: FolderNode | RequestWithTests): n is RequestWithTests {
@@ -80,7 +79,6 @@ export function CollectionsPanel() {
   const addFolder = useWorkspaceStore((s) => s.addFolder)
   const addCollection = useWorkspaceStore((s) => s.addCollection)
   const moveNode = useWorkspaceStore((s) => s.moveNode)
-  const importPostmanCollection = useWorkspaceStore((s) => s.importPostmanCollection)
   const closeTab = useTabsStore((s) => s.close)
   const openTabs = useTabsStore((s) => s.openIds)
 
@@ -116,7 +114,11 @@ export function CollectionsPanel() {
         const bridge = window.apiTester
         if (bridge?.importPostman) {
           await bridge.importPostman(text)
-          showToast('Imported via main process')
+          if (bridge.collectionsGetAll) {
+            const refreshed = await bridge.collectionsGetAll()
+            useWorkspaceStore.setState({ collections: refreshed })
+          }
+          showToast('Imported collection')
         } else {
           // Fallback: parse on renderer side
           const parsed = JSON.parse(text) as { info?: { name?: string }; item?: unknown[] }
@@ -191,22 +193,15 @@ export function CollectionsPanel() {
   }, [collections, matchesSearch])
 
   return (
-    <div className="collections app__collections">
+    <div className="collections">
       <div className="collections__top">
-        <div className="workspace-pick">
-          <span className="workspace-pick__icon">
-            <IconWorkspace width={14} height={14} />
-          </span>
-          <select defaultValue="default" aria-label="Workspace">
-            <option value="default">Workspace</option>
-          </select>
-          <button className="icon-btn" title="Workspace settings">
-            <IconFilter />
-          </button>
+        <div className="collections__identity">
+          <span className="collections__identity-title">Collections</span>
+          <span className="collections__identity-badge">Local</span>
         </div>
         <div className="search-row">
           <div className="search-input">
-            <IconSearch width={14} height={14} />
+            <IconSearch width={18} height={18} />
             <input
               placeholder="Search collections, requests, URLs"
               value={search}
@@ -312,11 +307,6 @@ export function CollectionsPanel() {
       )}
 
       {toast && <div className={`toast toast--${toast.tone}`}>{toast.msg}</div>}
-
-      {/* Hidden helper for the future: importPostmanCollection placeholder reference */}
-      <span style={{ display: 'none' }} aria-hidden>
-        {String(Boolean(importPostmanCollection))}
-      </span>
     </div>
   )
 }
@@ -465,7 +455,7 @@ function FolderRow({
         <span className="tree-row__count">
           {total} {total === 1 ? 'request' : 'requests'}
         </span>
-        {rootStar && <IconStar className="tree-row__star" width={12} height={12} />}
+        {rootStar && <IconStar className="tree-row__star" width={14} height={14} />}
         <div className="tree-row__actions" onClick={(e) => e.stopPropagation()}>
           <button
             className="row-icon"
@@ -475,7 +465,7 @@ function FolderRow({
               setEditingId(id)
             }}
           >
-            <IconFilePlus width={13} height={13} />
+            <IconFilePlus width={16} height={16} />
           </button>
           <button
             className="row-icon"
@@ -485,7 +475,7 @@ function FolderRow({
               setEditingId(id)
             }}
           >
-            <IconFolderPlus width={13} height={13} />
+            <IconFolderPlus width={16} height={16} />
           </button>
           <button
             className="row-icon"
@@ -494,7 +484,7 @@ function FolderRow({
               onContext(e, node.id, isCollectionRoot ? 'collection' : 'folder')
             }
           >
-            <IconMore width={13} height={13} />
+            <IconMore width={16} height={16} />
           </button>
         </div>
       </div>
@@ -630,21 +620,21 @@ function RequestRow({
           title="Duplicate"
           onClick={() => duplicateRequest(request.id)}
         >
-          <IconCopy width={13} height={13} />
+          <IconCopy width={16} height={16} />
         </button>
         <button
           className="row-icon"
           title="Rename"
           onClick={() => setEditingId(request.id)}
         >
-          <IconEdit width={13} height={13} />
+          <IconEdit width={16} height={16} />
         </button>
         <button
           className="row-icon"
           title="More"
           onClick={(e) => onContext(e, request.id, 'request')}
         >
-          <IconMore width={13} height={13} />
+          <IconMore width={16} height={16} />
         </button>
       </div>
     </div>
@@ -710,13 +700,13 @@ function ContextMenu({
       {isFolderLike && (
         <>
           <button onClick={() => onAction('add-request')}>
-            <IconFilePlus width={14} height={14} /> Add request
+            <IconFilePlus width={16} height={16} /> Add request
           </button>
           <button onClick={() => onAction('add-folder')}>
-            <IconFolderPlus width={14} height={14} /> Add folder
+            <IconFolderPlus width={16} height={16} /> Add folder
           </button>
           <button onClick={() => onAction('run')}>
-            <IconRunner width={14} height={14} /> Run folder
+            <IconRunner width={16} height={16} /> Run folder
           </button>
           <div className="ctx-menu__sep" />
         </>
@@ -724,16 +714,16 @@ function ContextMenu({
       {!isFolderLike && (
         <>
           <button onClick={() => onAction('duplicate')}>
-            <IconCopy width={14} height={14} /> Duplicate
+            <IconCopy width={16} height={16} /> Duplicate
           </button>
           <div className="ctx-menu__sep" />
         </>
       )}
       <button onClick={() => onAction('rename')}>
-        <IconEdit width={14} height={14} /> Rename
+        <IconEdit width={16} height={16} /> Rename
       </button>
       <button className="is-danger" onClick={() => onAction('delete')}>
-        <IconTrash width={14} height={14} /> Delete
+        <IconTrash width={16} height={16} /> Delete
       </button>
     </div>
   )

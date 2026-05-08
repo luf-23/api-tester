@@ -1,28 +1,36 @@
-import { IconChevRight, IconConsole, IconGlobe, IconRunner, IconTrash } from './icons'
+import { useTabsStore } from '../store/tabs'
+import { useWorkspaceStore } from '../store/workspace'
 
 export function StatusBar() {
+  const openIds = useTabsStore((s) => s.openIds)
+  const activeId = useTabsStore((s) => s.activeId)
+  const collections = useWorkspaceStore((s) => s.collections)
+
+  const reqCount = collections.reduce((n, c) => {
+    function walk(node: (typeof c)['root']): number {
+      let k = 0
+      for (const ch of node.children) {
+        k += 'method' in ch ? 1 : walk(ch)
+      }
+      return k
+    }
+    return n + walk(c.root)
+  }, 0)
+
   return (
-    <footer className="statusbar app__statusbar">
-      <span className="statusbar__pill">
-        <span className="statusbar__dot" />
-        All Systems Operational
-        <IconChevRight width={12} height={12} />
+    <footer className="statusbar">
+      <span className="statusbar__section statusbar__section--strong">Local</span>
+      <span className="statusbar__sep" aria-hidden />
+      <span className="statusbar__muted">
+        {collections.length} collection{collections.length === 1 ? '' : 's'} · {reqCount}{' '}
+        request{reqCount === 1 ? '' : 's'}
       </span>
-      <button className="statusbar__btn">
-        <IconConsole /> Console
-      </button>
-      <button className="statusbar__btn">
-        <IconRunner /> Runner
-      </button>
-      <button className="statusbar__btn">
-        <IconTrash /> Trash
-      </button>
       <span className="statusbar__spacer" />
-      <button className="statusbar__btn">
-        <IconGlobe /> Online
-      </button>
-      <span>v1.0.0</span>
-      <button className="statusbar__btn">Help</button>
+      {activeId && (
+        <span className="statusbar__muted">
+          Tab {openIds.indexOf(activeId) + 1} / {openIds.length}
+        </span>
+      )}
     </footer>
   )
 }

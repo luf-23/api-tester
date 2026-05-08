@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 import { ThemeCard } from './ThemeCard'
-import { IconChevDown, IconClose, IconEye, IconPlus, IconSettings } from './icons'
+import { IconClose, IconPlus, IconSettings } from './icons'
 
 export function TopBar() {
   const settingsWrapRef = useRef<HTMLDivElement>(null)
@@ -22,27 +22,51 @@ export function TopBar() {
   const activeId = useTabsStore((s) => s.activeId)
   const activate = useTabsStore((s) => s.activate)
   const close = useTabsStore((s) => s.close)
+  const openTab = useTabsStore((s) => s.open)
   const getRequest = useWorkspaceStore((s) => s.getRequest)
+  const collections = useWorkspaceStore((s) => s.collections)
+  const addCollection = useWorkspaceStore((s) => s.addCollection)
+  const addRequest = useWorkspaceStore((s) => s.addRequest)
+
+  const onNewTab = () => {
+    let col = collections[0]
+    if (!col) {
+      addCollection('My collection')
+      col = useWorkspaceStore.getState().collections[0]
+    }
+    if (!col) return
+    const id = addRequest(col.root.id)
+    openTab(id)
+  }
 
   return (
     <header className="topbar">
-      <div className="tabs">
+      <div className="tabs" role="tablist" aria-label="Open requests">
         {openIds.map((id) => {
           const r = getRequest(id)
           if (!r) return null
           const active = id === activeId
           return (
-            <button
+            <div
               key={id}
+              role="tab"
+              aria-selected={active}
+              tabIndex={active ? 0 : -1}
               className={`tab${active ? ' is-active' : ''}`}
               onClick={() => activate(id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  activate(id)
+                }
+              }}
             >
-              <span className={`method ${r.method}`}>
+              <span className={`method method--tab ${r.method}`}>
                 {r.method === 'DELETE' ? 'DEL' : r.method}
               </span>
-              <span>{r.name}</span>
-              {active && <span className="tab__dot" />}
+              <span className="tab__label">{r.name}</span>
               <button
+                type="button"
                 className="tab__close"
                 onClick={(e) => {
                   e.stopPropagation()
@@ -50,34 +74,21 @@ export function TopBar() {
                 }}
                 aria-label={`Close ${r.name}`}
               >
-                <IconClose width={12} height={12} />
+                <IconClose width={16} height={16} />
               </button>
-            </button>
+            </div>
           )
         })}
-        <button className="tab--add" title="New tab">
-          <IconPlus width={14} height={14} />
+        <button type="button" className="tab tab--add" title="New request" onClick={onNewTab}>
+          <IconPlus width={18} height={18} />
         </button>
       </div>
-      <div className="env-cluster">
-        <div className="env-pick">
-          <span className="env-pick__dot" />
-          <select defaultValue="none">
-            <option value="none">No Environment</option>
-            <option value="dev">Development</option>
-            <option value="staging">Staging</option>
-            <option value="prod">Production</option>
-          </select>
-          <IconChevDown width={14} height={14} />
-        </div>
-        <button className="icon-btn" title="Variable preview">
-          <IconEye />
-        </button>
+      <div className="topbar__actions">
         <div className="topbar-settings" ref={settingsWrapRef}>
           <button
             type="button"
             className={`icon-btn${settingsOpen ? ' is-active' : ''}`}
-            title="Workspace settings"
+            title="Appearance"
             aria-expanded={settingsOpen}
             aria-haspopup="dialog"
             onClick={() => setSettingsOpen((o) => !o)}
@@ -85,12 +96,11 @@ export function TopBar() {
             <IconSettings />
           </button>
           {settingsOpen && (
-            <div className="topbar-settings__panel" role="dialog" aria-label="Workspace settings">
+            <div className="topbar-settings__panel" role="dialog" aria-label="Appearance">
               <ThemeCard />
             </div>
           )}
         </div>
-        <div className="avatar" title="Account">AK</div>
       </div>
     </header>
   )
