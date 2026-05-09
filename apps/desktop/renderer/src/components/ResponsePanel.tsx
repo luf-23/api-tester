@@ -31,6 +31,14 @@ function relativeTime(ts?: number): string {
   return ui.response.relativeMinutesAgo(Math.round(diff / 60_000))
 }
 
+/** Avoid showing "0 OK" when status is 0 and statusText is empty; only use OK fallback for 2xx. */
+function formatStatusLine(r: { status: number; statusText: string }): string {
+  const phrase =
+    (r.statusText ?? '').trim() ||
+    (r.status >= 200 && r.status < 300 ? ui.response.okFallback : '')
+  return phrase ? `${r.status} ${phrase}` : String(r.status)
+}
+
 function emptySectionCounts(): Record<Section, number> {
   return {
     [SECTIONS[0]]: 0,
@@ -56,26 +64,6 @@ export function ResponsePanel({ requestId }: Props) {
     } satisfies Record<Section, number>
   }, [response])
 
-  if (!response && !state?.loading) {
-    if (state?.error) {
-      return (
-        <section className="response">
-          <div className="response__head">
-            <span className="status-pill s-5xx">{ui.response.errorSending}</span>
-            <span className="muted">{state.error}</span>
-          </div>
-        </section>
-      )
-    }
-    return (
-      <section className="response">
-        <div className="response__head">
-          <span className="muted">{ui.response.noResponse}</span>
-        </div>
-      </section>
-    )
-  }
-
   if (state?.loading) {
     return (
       <section className="response">
@@ -86,7 +74,29 @@ export function ResponsePanel({ requestId }: Props) {
     )
   }
 
-  const r = response!
+  /** sendRequest still returns an empty HttpResponseView on failure; error carries the real reason. */
+  if (state?.error) {
+    return (
+      <section className="response">
+        <div className="response__head">
+          <span className="status-pill s-5xx">{ui.response.errorSending}</span>
+          <span className="muted">{state.error}</span>
+        </div>
+      </section>
+    )
+  }
+
+  if (!response) {
+    return (
+      <section className="response">
+        <div className="response__head">
+          <span className="muted">{ui.response.noResponse}</span>
+        </div>
+      </section>
+    )
+  }
+
+  const r = response
   const formatted = tryFormatJson(r.bodyText)
   const json = safeParseJson(r.bodyText)
 
@@ -108,7 +118,7 @@ export function ResponsePanel({ requestId }: Props) {
         ))}
         <div className="response__meta">
           <span className={`status-pill ${statusClass(r.status)}`}>
-            {r.status} {r.statusText || ui.response.okFallback}
+            {formatStatusLine(r)}
           </span>
           <span>{formatDuration(r.durationMs)}</span>
           <span>{formatBytes(r.sizeBytes)}</span>
