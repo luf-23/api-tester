@@ -10,7 +10,8 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build && electron-builder",
+    "build": "electron-vite build && electron-builder --publish never",
+    "build:publish": "electron-vite build && electron-builder --publish always",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3",
