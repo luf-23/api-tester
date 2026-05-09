@@ -5,6 +5,8 @@ import { ui } from '../locale/ui'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 import { sendHttp } from '../lib/api'
+import { tryFormatJson } from '../lib/format'
+import { JsonBodyEditor } from './JsonBodyEditor'
 import { KeyValueEditor } from './KeyValueEditor'
 import { MethodPick } from './MethodPick'
 import { IconChevDown, IconSave, IconSend } from './icons'
@@ -177,12 +179,14 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
         <button type="button" className="subtabs__link">{ui.request.cookiesLink}</button>
       </nav>
 
-      <div className="subpanel">
+      <div className={`subpanel${active === 'body' ? ' subpanel--body' : ''}`}>
         {active === 'params' && (
           <>
             <div className="kv__title-row">
-              <h4 style={{ margin: 0 }}>{ui.request.queryParams}</h4>
-              <button type="button" className="kv__bulk">{ui.request.bulkEdit}</button>
+              <h4 className="request-subpanel__title">{ui.request.queryParams}</h4>
+              <button type="button" className="kv__bulk">
+                {ui.request.bulkEdit}
+              </button>
             </div>
             <KeyValueEditor
               rows={request.params}
@@ -193,7 +197,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
         {active === 'headers' && (
           <>
             <div className="kv__title-row">
-              <h4 style={{ margin: 0 }}>{ui.request.headersTitle}</h4>
+              <h4 className="request-subpanel__title">{ui.request.headersTitle}</h4>
             </div>
             <KeyValueEditor
               rows={request.headers}
@@ -213,59 +217,88 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
 function BodyEditor({ request }: { request: RequestWithTests }) {
   const update = useWorkspaceStore((s) => s.updateRequest)
   const setKv = useWorkspaceStore((s) => s.setKv)
+  const [jsonHint, setJsonHint] = useState<string | null>(null)
+
+  const formatJsonBody = () => {
+    const { pretty, ok } = tryFormatJson(request.bodyText)
+    if (ok) {
+      update(request.id, { bodyText: pretty })
+      setJsonHint(null)
+    } else {
+      setJsonHint(ui.request.formatJsonInvalid)
+      window.setTimeout(() => setJsonHint(null), 4200)
+    }
+  }
+
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 10, color: 'var(--text-secondary)' }}>
-        {BODY_MODES.map(({ id: mode, label }) => (
-          <label key={mode} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
-            <input
-              type="radio"
-              name={`bodymode-${request.id}`}
-              checked={request.bodyMode === mode}
-              onChange={() => update(request.id, { bodyMode: mode })}
-            />
-            <span>{label}</span>
-          </label>
-        ))}
+    <div className="body-editor">
+      <div className="body-editor__toolbar">
+        <div className="body-editor__modes">
+          {BODY_MODES.map(({ id: mode, label }) => (
+            <label key={mode} className="body-editor__mode">
+              <input
+                type="radio"
+                name={`bodymode-${request.id}`}
+                checked={request.bodyMode === mode}
+                onChange={() => update(request.id, { bodyMode: mode })}
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+        <div className="body-editor__toolbar-end">
+          {request.bodyMode === 'json' && jsonHint && (
+            <span className="body-editor__json-hint" title={jsonHint}>
+              {jsonHint}
+            </span>
+          )}
+          {request.bodyMode === 'json' && (
+            <button type="button" className="body-editor__format-btn" onClick={formatJsonBody}>
+              {ui.request.formatJson}
+            </button>
+          )}
+        </div>
       </div>
-      {(request.bodyMode === 'form-urlencoded' || request.bodyMode === 'form-data') && (
-        <>
-          <div className="kv__title-row">
-            <h4 style={{ margin: 0 }}>
-              {request.bodyMode === 'form-urlencoded'
-                ? ui.request.bodyModes['form-urlencoded']
-                : ui.request.bodyModes['form-data']}
-            </h4>
-          </div>
-          <KeyValueEditor
-            rows={request.bodyFields}
-            onChange={(rows) => setKv(request.id, 'bodyFields', rows)}
-            withDescription={false}
+
+      <div className="body-editor__main">
+        {(request.bodyMode === 'form-urlencoded' || request.bodyMode === 'form-data') && (
+          <>
+            <div className="kv__title-row body-editor__kv-head">
+              <h4 className="request-subpanel__title">
+                {request.bodyMode === 'form-urlencoded'
+                  ? ui.request.bodyModes['form-urlencoded']
+                  : ui.request.bodyModes['form-data']}
+              </h4>
+            </div>
+            <div className="body-editor__kv-scroll">
+              <KeyValueEditor
+                rows={request.bodyFields}
+                onChange={(rows) => setKv(request.id, 'bodyFields', rows)}
+                withDescription={false}
+              />
+            </div>
+          </>
+        )}
+        {request.bodyMode === 'json' && (
+          <JsonBodyEditor
+            value={request.bodyText}
+            placeholder={ui.request.bodyPlaceholderJson}
+            onChange={(bodyText) => update(request.id, { bodyText })}
           />
-        </>
-      )}
-      {(request.bodyMode === 'json' || request.bodyMode === 'text') && (
-        <textarea
-          value={request.bodyText}
-          onChange={(e) => update(request.id, { bodyText: e.target.value })}
-          placeholder={request.bodyMode === 'json' ? ui.request.bodyPlaceholderJson : ui.request.bodyPlaceholderText}
-          style={{
-            width: '100%',
-            minHeight: 240,
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 4,
-            color: 'var(--text-primary)',
-            padding: 12,
-            fontFamily: 'var(--font-code)',
-            fontSize: 12.5,
-            outline: 0,
-            resize: 'vertical',
-          }}
-          spellCheck={false}
-        />
-      )}
-      {request.bodyMode === 'none' && <p className="dim">{ui.request.noBody}</p>}
+        )}
+        {request.bodyMode === 'text' && (
+          <textarea
+            className="body-editor__textarea"
+            value={request.bodyText}
+            onChange={(e) => update(request.id, { bodyText: e.target.value })}
+            placeholder={ui.request.bodyPlaceholderText}
+            spellCheck={false}
+          />
+        )}
+        {request.bodyMode === 'none' && (
+          <p className="body-editor__empty dim">{ui.request.noBody}</p>
+        )}
+      </div>
     </div>
   )
 }

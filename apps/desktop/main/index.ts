@@ -78,6 +78,8 @@ function createWindow(): void {
       nodeIntegration: false,
       // sandbox + native ipc/preload is flaky on some Windows/dev setups; keeps preload exposing apiTester
       sandbox: false,
+      /** API 表单多为 URL/JSON/Header 名等非自然语言，关闭内置拼写检查以避免红色波浪线 */
+      spellcheck: false,
     },
   })
 

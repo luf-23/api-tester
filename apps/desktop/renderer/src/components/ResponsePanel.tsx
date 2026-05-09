@@ -99,7 +99,6 @@ export function ResponsePanel({ requestId }: Props) {
             type="button"
             className={`subtab${section === s ? ' is-active' : ''}`}
             onClick={() => setSection(s)}
-            style={{ height: '100%' }}
           >
             <span>{s}</span>
             {s !== SECTIONS[0] && (
@@ -284,7 +283,7 @@ function ResponseExplorer({ json }: { json: unknown }) {
       </div>
       <div className="explorer__search">
         <IconSearch width={16} height={16} />
-        <input placeholder={ui.response.searchResponse} />
+        <input placeholder={ui.response.searchResponse} spellCheck={false} />
       </div>
       <div className="explorer__tree">
         {json === undefined ? (

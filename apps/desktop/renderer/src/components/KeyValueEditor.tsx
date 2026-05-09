@@ -62,6 +62,7 @@ export function KeyValueEditor({
               type="text"
               value={row.key}
               placeholder={keyLabel}
+              spellCheck={false}
               onChange={(e) => update(idx, { key: e.target.value })}
             />
           )}
@@ -71,6 +72,7 @@ export function KeyValueEditor({
             type="text"
             value={row.value}
             placeholder={isPreset ? presetValuePlaceholder(row.key, valueLabel) : valueLabel}
+            spellCheck={false}
             onChange={(e) => update(idx, { value: e.target.value })}
           />
         </div>
@@ -82,6 +84,7 @@ export function KeyValueEditor({
               <input
                 type="text"
                 placeholder={ui.kv.description}
+                spellCheck={false}
                 defaultValue={defaultDescription(row.key)}
               />
             )}

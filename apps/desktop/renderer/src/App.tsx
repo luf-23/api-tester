@@ -17,7 +17,7 @@ const SIDEBAR_MAX = 560
 const SPLIT_MIN = 0.22
 const SPLIT_MAX = 0.78
 /** Default fraction of vertical space for the request pane (top); response gets the rest. */
-const SPLIT_DEFAULT = 0.68
+const SPLIT_DEFAULT = 0.56
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n))

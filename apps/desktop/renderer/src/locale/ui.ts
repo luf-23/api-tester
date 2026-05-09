@@ -92,6 +92,8 @@ export const ui = {
     },
     bodyPlaceholderJson: '{\n  "key": "value"\n}',
     bodyPlaceholderText: 'Raw request body',
+    formatJson: 'Format JSON',
+    formatJsonInvalid: 'JSON has syntax errors — fix highlighted issues before formatting.',
     noBody: 'This request does not have a body.',
     scriptHint: 'JavaScript runs before the request is sent. Editing will be available in a future update.',
     settingsTitle: 'Settings',
