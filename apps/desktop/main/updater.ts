@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
-import { autoUpdater } from 'electron-updater'
+import electronUpdater from 'electron-updater'
 import { ipcChannels, updaterPushChannel, type UpdaterPushPayload } from '@api-tester/shared'
+
+const { autoUpdater } = electronUpdater
 
 export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
   function push(payload: UpdaterPushPayload): void {
