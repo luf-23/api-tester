@@ -22,6 +22,7 @@ import {
   runCollection,
 } from '@api-tester/domain'
 import { MockServerController } from '@api-tester/mock-server'
+import { setupAutoUpdater } from './updater'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -252,6 +253,7 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+  setupAutoUpdater(() => mainWindow)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

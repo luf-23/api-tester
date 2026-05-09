@@ -5,6 +5,7 @@ import { TopBar } from './components/TopBar'
 import { RequestPanel } from './components/RequestPanel'
 import { ResponsePanel } from './components/ResponsePanel'
 import { StatusBar } from './components/StatusBar'
+import { UpdateBanner } from './components/UpdateBanner'
 import { useTabsStore } from './store/tabs'
 import { useWorkspaceStore } from './store/workspace'
 import { useThemeStore } from './store/theme'
@@ -196,6 +197,7 @@ export default function App() {
           onMouseDown={startColResize}
         />
         <main className="app__main">
+          <UpdateBanner />
           <TopBar />
           {activeRequest ? (
             <div className="editor-stack" ref={editorStackRef}>

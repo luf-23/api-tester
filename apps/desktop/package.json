@@ -1,7 +1,11 @@
 {
   "name": "@api-tester/desktop",
-  "version": "0.1.4",
+  "version": "1.0.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luf-23/api-tester.git"
+  },
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
@@ -74,6 +78,11 @@
     },
     "nsis": {
       "include": "build/installer.nsh"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "luf-23",
+      "repo": "api-tester"
     }
   }
 }

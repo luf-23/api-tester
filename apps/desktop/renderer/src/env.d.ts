@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { Collection, RequestDraft } from '@api-tester/shared'
+import type { Collection, RequestDraft, UpdaterPushPayload } from '@api-tester/shared'
 
 declare global {
   interface Window {
@@ -39,6 +39,10 @@ declare global {
       exportWorkspace: () => Promise<string>
       importWorkspace: (jsonText: string) => Promise<{ ok: boolean }>
       importPostman: (jsonText: string) => Promise<{ id: string }>
+      updaterCheck: () => Promise<{ ok: true } | { ok: false; reason?: string; message?: string }>
+      updaterDownload: () => Promise<{ ok: true } | { ok: false; reason?: string; message?: string }>
+      updaterQuitAndInstall: () => Promise<{ ok: true } | { ok: false; reason?: string }>
+      updaterSubscribe: (callback: (payload: UpdaterPushPayload) => void) => () => void
     }
   }
 }

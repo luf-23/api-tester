@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { ipcChannels } from '@api-tester/shared'
+import { ipcChannels, updaterPushChannel, type UpdaterPushPayload } from '@api-tester/shared'
 
 const api = {
   sendHttp: (payload: unknown) => ipcRenderer.invoke(ipcChannels.sendHttp, payload),
@@ -31,6 +31,17 @@ const api = {
     ipcRenderer.invoke(ipcChannels.importWorkspace, jsonText),
   importPostman: (jsonText: string) =>
     ipcRenderer.invoke(ipcChannels.importPostman, jsonText),
+  updaterCheck: () => ipcRenderer.invoke(ipcChannels.updaterCheck),
+  updaterDownload: () => ipcRenderer.invoke(ipcChannels.updaterDownload),
+  updaterQuitAndInstall: () => ipcRenderer.invoke(ipcChannels.updaterQuitAndInstall),
+  updaterSubscribe: (callback: (payload: UpdaterPushPayload) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: UpdaterPushPayload) =>
+      callback(payload)
+    ipcRenderer.on(updaterPushChannel, listener)
+    return () => {
+      ipcRenderer.removeListener(updaterPushChannel, listener)
+    }
+  },
 }
 
 contextBridge.exposeInMainWorld('apiTester', api)

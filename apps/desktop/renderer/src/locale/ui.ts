@@ -3,6 +3,17 @@
  * 集合/请求/文件夹默认英文名见 workspace.ts。
  */
 export const ui = {
+  /** 应用内更新（electron-updater，需打包版且 GitHub Release 含 latest.yml） */
+  update: {
+    available: (v: string) => `发现新版本 ${v}`,
+    download: '下载更新',
+    downloading: (pct: number) => `正在下载更新 ${pct}%`,
+    ready: (v: string) => `新版本 ${v} 已就绪`,
+    dataKept: '重启后完成安装，本地数据将保留',
+    restart: '重启并更新',
+    retry: '重试',
+    dismiss: '关闭',
+  },
   app: {
     loadingWorkspace: '正在加载工作区…',
     resizeCollections: '拖动调整集合列表宽度',

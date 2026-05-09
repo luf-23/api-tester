@@ -88,4 +88,18 @@ export const ipcChannels = {
   exportWorkspace: 'workspace:export',
   importWorkspace: 'workspace:import',
   importPostman: 'import:postman',
+  updaterCheck: 'updater:check',
+  updaterDownload: 'updater:download',
+  updaterQuitAndInstall: 'updater:quitAndInstall',
 } as const
+
+/** Main → renderer (preload listens on this channel). */
+export const updaterPushChannel = 'updater:event' as const
+
+export type UpdaterPushPayload =
+  | { type: 'checking' }
+  | { type: 'available'; version: string; releaseNotes?: string }
+  | { type: 'not-available' }
+  | { type: 'download-progress'; percent: number; transferred: number; total: number }
+  | { type: 'downloaded'; version: string }
+  | { type: 'error'; message: string }

@@ -90,6 +90,55 @@ input, textarea, select, option {
   overflow: hidden;
 }
 
+.update-banner {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-app));
+  font-size: var(--fs-caption);
+}
+.update-banner__text {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.update-banner__text--err {
+  font-weight: 500;
+  color: var(--status-4xx, #d14545);
+}
+.update-banner__notes {
+  font-weight: 450;
+  color: var(--text-secondary);
+  max-width: min(420px, 40vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.update-banner__hint {
+  flex: 1 1 auto;
+  min-width: 140px;
+}
+.update-banner__progress {
+  flex: 1 1 160px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+.update-banner__progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.15s ease-out;
+}
+
 .app__statusbar {
   flex-shrink: 0;
 }
@@ -793,6 +842,12 @@ body.is-resizing-row .resize-handle--row::after {
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 .btn--primary:hover { background: var(--accent-strong); color: var(--on-accent); }
+.btn--sm {
+  min-height: 28px;
+  padding: 4px 12px;
+  font-size: var(--fs-caption);
+  gap: 6px;
+}
 .btn--split { padding-right: 8px; }
 .btn svg { width: 16px; height: 16px; }
 
