@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -80,6 +81,7 @@ export function CollectionsPanel() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [drag, setDrag] = useState<{ id: string; over?: string; pos?: DropPosition } | null>(
     null
   )
@@ -113,6 +115,31 @@ export function CollectionsPanel() {
   const showToast = useCallback((msg: string, tone: 'ok' | 'err' = 'ok') => {
     setToast({ msg, tone })
   }, [])
+
+  const performDelete = useCallback(
+    (id: string) => {
+      const collectIds = (n: FolderNode | RequestWithTests): string[] =>
+        isRequest(n) ? [n.id] : n.children.flatMap(collectIds)
+      const target = (() => {
+        for (const c of collections) {
+          const stack: Array<FolderNode | RequestWithTests> = [c.root]
+          while (stack.length) {
+            const cur = stack.pop()!
+            if (cur.id === id) return cur
+            if (!isRequest(cur)) stack.push(...cur.children)
+          }
+        }
+        return undefined
+      })()
+      const ids = target ? collectIds(target) : [id]
+      ids.forEach((rid) => {
+        if (openTabs.includes(rid)) closeTab(rid)
+      })
+      deleteNode(id)
+      showToast(ui.collections.toastDeleted)
+    },
+    [collections, openTabs, closeTab, deleteNode, showToast]
+  )
 
   const handleImport = useCallback(async () => {
     const input = document.createElement('input')
@@ -289,28 +316,7 @@ export function CollectionsPanel() {
             const id = menu.nodeId
             if (action === 'rename') setEditingId(id)
             else if (action === 'delete') {
-              if (confirm(ui.collections.confirmDelete)) {
-                // Close any tabs whose request lives inside the deleted subtree.
-                const collectIds = (n: FolderNode | RequestWithTests): string[] =>
-                  isRequest(n) ? [n.id] : n.children.flatMap(collectIds)
-                const target = (() => {
-                  for (const c of collections) {
-                    const stack: Array<FolderNode | RequestWithTests> = [c.root]
-                    while (stack.length) {
-                      const cur = stack.pop()!
-                      if (cur.id === id) return cur
-                      if (!isRequest(cur)) stack.push(...cur.children)
-                    }
-                  }
-                  return undefined
-                })()
-                const ids = target ? collectIds(target) : [id]
-                ids.forEach((rid) => {
-                  if (openTabs.includes(rid)) closeTab(rid)
-                })
-                deleteNode(id)
-                showToast(ui.collections.toastDeleted)
-              }
+              setPendingDeleteId(id)
             } else if (action === 'duplicate') {
               const newId = duplicateRequest(id)
               if (newId) showToast(ui.collections.toastDuplicated)
@@ -328,7 +334,21 @@ export function CollectionsPanel() {
         />
       )}
 
-      {toast && <div className={`toast toast--${toast.tone}`}>{toast.msg}</div>}
+      {pendingDeleteId && (
+        <DeleteConfirmDialog
+          onCancel={() => setPendingDeleteId(null)}
+          onConfirm={() => {
+            performDelete(pendingDeleteId)
+            setPendingDeleteId(null)
+          }}
+        />
+      )}
+
+      {toast && (
+        <div className={`toast toast--${toast.tone}`} role="status" aria-live="polite">
+          {toast.msg}
+        </div>
+      )}
     </div>
   )
 }
@@ -747,6 +767,64 @@ function InlineRename({
       onBlur={() => onCommit(value)}
       onClick={(e) => e.stopPropagation()}
     />
+  )
+}
+
+function DeleteConfirmDialog({
+  onCancel,
+  onConfirm,
+}: {
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const titleId = useId()
+  const descId = useId()
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel])
+  useLayoutEffect(() => {
+    cancelRef.current?.focus({ preventScroll: true })
+  }, [])
+  return (
+    <div className="confirm-overlay" role="presentation" onClick={onCancel}>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        className="confirm-dialog"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id={titleId} className="confirm-dialog__title">
+          {ui.collections.confirmDeleteTitle}
+        </h2>
+        <p id={descId} className="confirm-dialog__body">
+          {ui.collections.confirmDeleteBody}
+        </p>
+        <div className="confirm-dialog__actions">
+          <button
+            ref={cancelRef}
+            type="button"
+            className="confirm-dialog__btn"
+            onClick={onCancel}
+          >
+            {ui.collections.confirmDeleteCancel}
+          </button>
+          <button
+            type="button"
+            className="confirm-dialog__btn confirm-dialog__btn--danger"
+            onClick={onConfirm}
+          >
+            {ui.collections.confirmDeleteConfirm}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

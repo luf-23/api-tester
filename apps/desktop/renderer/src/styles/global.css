@@ -514,21 +514,105 @@ body.is-resizing-row .resize-handle--row::after {
 
 /* ---------- Toast ---------- */
 .toast {
-  position: absolute;
-  left: 50%; bottom: 16px; transform: translateX(-50%);
-  padding: 8px 14px; border-radius: 4px;
+  position: fixed;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  padding: 9px 16px;
+  border-radius: 4px;
   font-size: 12px;
+  line-height: 1.4;
   background: var(--bg-panel, var(--bg-shell));
   border: 1px solid var(--border-strong);
-  box-shadow: 0 4px 14px rgba(0,0,0,0.16);
-  animation: toastIn 0.18s ease-out;
-  z-index: 50;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08);
+  animation: toastIn 0.2s ease-out;
+  z-index: 1600;
   pointer-events: none;
-  white-space: nowrap;
+  max-width: min(440px, calc(100vw - 28px));
+  white-space: normal;
+  text-align: center;
 }
 .toast--ok { color: var(--accent); border-color: var(--accent-ring); }
 .toast--err { color: var(--status-4xx, #d14545); border-color: color-mix(in srgb, var(--status-4xx, #d14545) 30%, transparent); }
-@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ---------- Delete confirm (collections) ---------- */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg-app, #0d0d0d) 52%, rgba(0, 0, 0, 0.55));
+  animation: confirmOverlayIn 0.14s ease-out;
+}
+@keyframes confirmOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.confirm-dialog {
+  width: min(380px, 100%);
+  background: var(--bg-panel, var(--bg-shell));
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.22), 0 6px 16px rgba(0, 0, 0, 0.12);
+  padding: 18px 20px 16px;
+  animation: confirmDialogIn 0.16s ease-out;
+}
+@keyframes confirmDialogIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.confirm-dialog__title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+.confirm-dialog__body {
+  margin: 0 0 18px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.confirm-dialog__btn {
+  min-height: 30px;
+  padding: 0 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: default;
+}
+.confirm-dialog__btn:hover {
+  background: var(--bg-hover);
+}
+.confirm-dialog__btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--accent-ring);
+}
+.confirm-dialog__btn--danger {
+  border-color: color-mix(in srgb, var(--status-4xx, #d14545) 45%, var(--border-strong));
+  background: color-mix(in srgb, var(--status-4xx, #d14545) 14%, var(--bg-elevated));
+  color: var(--status-4xx, #d14545);
+}
+.confirm-dialog__btn--danger:hover {
+  background: color-mix(in srgb, var(--status-4xx, #d14545) 22%, var(--bg-elevated));
+}
 
 /* ---------- Top bar (VS Code–style editor tabs) ---------- */
 .topbar {
