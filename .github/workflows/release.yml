@@ -41,7 +41,7 @@ jobs:
           for f in apps/desktop/release/*; do
             [[ -f "$f" ]] || continue
             case "$f" in
-              *.exe|*.dmg|*.AppImage|*.yml|*.yaml|*.blockmap) cp "$f" staging/ ;;
+              *.exe|*.zip|*.dmg|*.AppImage|*.yml|*.yaml|*.blockmap) cp "$f" staging/ ;;
             esac
           done
           ls -la staging/
