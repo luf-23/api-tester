@@ -87,6 +87,7 @@ export const ipcChannels = {
   mockStatus: 'mock:status',
   exportWorkspace: 'workspace:export',
   importWorkspace: 'workspace:import',
+  importWorkspaceMerge: 'workspace:importMerge',
   importPostman: 'import:postman',
   updaterCheck: 'updater:check',
   updaterDownload: 'updater:download',

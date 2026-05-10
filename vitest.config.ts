@@ -11,6 +11,7 @@ export default defineConfig({
     alias: {
       '@api-tester/shared': path.resolve(__dirname, 'packages/shared/src'),
       '@api-tester/domain': path.resolve(__dirname, 'packages/domain/src'),
+      '@api-tester/storage': path.resolve(__dirname, 'packages/storage/src'),
     },
   },
 })

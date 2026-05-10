@@ -40,6 +40,13 @@ declare global {
       mockStatus: () => Promise<{ running: boolean; port: number }>
       exportWorkspace: () => Promise<string>
       importWorkspace: (jsonText: string) => Promise<{ ok: boolean }>
+      importWorkspaceMerge: (jsonText: string) => Promise<{
+        ok: true
+        importedCollections: number
+        importedEnvironments: number
+        renamedCollections: Array<{ from: string; to: string }>
+        renamedEnvironments: Array<{ from: string; to: string }>
+      }>
       importPostman: (jsonText: string) => Promise<{ id: string }>
       updaterCheck: () => Promise<{ ok: true } | { ok: false; reason?: string; message?: string }>
       updaterDownload: () => Promise<{ ok: true } | { ok: false; reason?: string; message?: string }>

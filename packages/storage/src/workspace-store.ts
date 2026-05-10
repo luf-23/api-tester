@@ -5,6 +5,12 @@ import type {
   WorkspaceMeta,
 } from '@api-tester/shared'
 import type { StorageContext } from './db'
+import {
+  allocateUniqueDisplayName,
+  remapCollectionIds,
+  remapEnvironmentIds,
+  stringifyWorkspaceBundle,
+} from './workspace-bundle'
 
 const THEME_KEY = 'theme_id'
 const DEFAULT_WS_ID = 'default'
@@ -189,6 +195,78 @@ export class WorkspaceStore {
       environments: this.listEnvironments(),
       collections: this.getAllCollections(),
       history: this.listHistory(500),
+    }
+  }
+
+  exportBundleJson(): string {
+    const data = this.exportAll()
+    return stringifyWorkspaceBundle(data)
+  }
+
+  private saveAllEnvironments(environments: Environment[]): void {
+    const tx = this.ctx.db.transaction(() => {
+      this.ctx.db.prepare(`DELETE FROM environments`).run()
+      const ins = this.ctx.db.prepare(
+        `INSERT INTO environments (id, json, sort_index) VALUES (?, ?, ?)`
+      )
+      environments.forEach((e, i) => ins.run(e.id, JSON.stringify(e), i))
+    })
+    tx()
+  }
+
+  /**
+   * Append collections and environments from a foreign file. Remaps ids to avoid collisions.
+   * Renames imports when a display name is already used (case-insensitive).
+   */
+  mergeImportBundle(dataIn: { collections: Collection[]; environments: Environment[] }): {
+    importedCollections: number
+    importedEnvironments: number
+    renamedCollections: Array<{ from: string; to: string }>
+    renamedEnvironments: Array<{ from: string; to: string }>
+  } {
+    const existingCols = this.getAllCollections()
+    const existingEnvs = this.listEnvironments()
+
+    const colNamesTaken = new Set(
+      existingCols.map((c) => c.name.trim().toLowerCase()).filter(Boolean)
+    )
+    const renamedCols: Array<{ from: string; to: string }> = []
+    const appendedCols: Collection[] = []
+
+    for (const raw of dataIn.collections) {
+      const remapped = remapCollectionIds(raw)
+      const baseName = remapped.name.trim() || 'Untitled Collection'
+      const unique = allocateUniqueDisplayName(colNamesTaken, baseName)
+      if (unique !== baseName) renamedCols.push({ from: baseName, to: unique })
+      appendedCols.push({
+        ...remapped,
+        name: unique,
+        root: { ...remapped.root, name: unique },
+      })
+    }
+
+    const envNamesTaken = new Set(
+      existingEnvs.map((e) => e.name.trim().toLowerCase()).filter(Boolean)
+    )
+    const renamedEnvs: Array<{ from: string; to: string }> = []
+    const appendedEnvs: Environment[] = []
+
+    for (const raw of dataIn.environments) {
+      const remapped = remapEnvironmentIds(raw)
+      const baseName = remapped.name.trim() || 'Environment'
+      const unique = allocateUniqueDisplayName(envNamesTaken, baseName)
+      if (unique !== baseName) renamedEnvs.push({ from: baseName, to: unique })
+      appendedEnvs.push({ ...remapped, name: unique })
+    }
+
+    this.saveAllCollections([...existingCols, ...appendedCols])
+    this.saveAllEnvironments([...existingEnvs, ...appendedEnvs])
+
+    return {
+      importedCollections: appendedCols.length,
+      importedEnvironments: appendedEnvs.length,
+      renamedCollections: renamedCols,
+      renamedEnvironments: renamedEnvs,
     }
   }
 

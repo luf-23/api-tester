@@ -29,6 +29,8 @@ const api = {
   exportWorkspace: () => ipcRenderer.invoke(ipcChannels.exportWorkspace),
   importWorkspace: (jsonText: string) =>
     ipcRenderer.invoke(ipcChannels.importWorkspace, jsonText),
+  importWorkspaceMerge: (jsonText: string) =>
+    ipcRenderer.invoke(ipcChannels.importWorkspaceMerge, jsonText),
   importPostman: (jsonText: string) =>
     ipcRenderer.invoke(ipcChannels.importPostman, jsonText),
   updaterCheck: () => ipcRenderer.invoke(ipcChannels.updaterCheck),

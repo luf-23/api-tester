@@ -14,7 +14,7 @@ import {
 } from '@api-tester/shared'
 import type { Collection, Environment, RequestWithTests } from '@api-tester/shared'
 import { sendRequest } from '@api-tester/http-client'
-import { openDatabase, WorkspaceStore } from '@api-tester/storage'
+import { openDatabase, tryParseWorkspaceBundle, WorkspaceStore } from '@api-tester/storage'
 import {
   applyVariablesToRequest,
   importPostmanCollectionV21,
@@ -229,19 +229,27 @@ app.whenReady().then(() => {
     port: mockCtl.listenPort,
   }))
 
-  ipcMain.handle(ipcChannels.exportWorkspace, async () => {
-    const data = store!.exportAll()
-    return JSON.stringify(data, null, 2)
-  })
+  ipcMain.handle(ipcChannels.exportWorkspace, async () => store!.exportBundleJson())
 
   ipcMain.handle(ipcChannels.importWorkspace, async (_e, jsonText: string) => {
-    const data = JSON.parse(jsonText) as {
-      meta: import('@api-tester/shared').WorkspaceMeta
-      environments: Environment[]
-      collections: Collection[]
-    }
-    store!.importBundle(data)
+    const parsed = tryParseWorkspaceBundle(jsonText)
+    if (!parsed) throw new Error('Invalid workspace backup JSON')
+    store!.importBundle({
+      meta: parsed.meta ?? store!.getWorkspaceMeta(),
+      environments: parsed.environments,
+      collections: parsed.collections,
+    })
     return { ok: true }
+  })
+
+  ipcMain.handle(ipcChannels.importWorkspaceMerge, async (_e, jsonText: string) => {
+    const parsed = tryParseWorkspaceBundle(jsonText)
+    if (!parsed) throw new Error('Not an api-tester workspace export JSON')
+    const summary = store!.mergeImportBundle({
+      collections: parsed.collections,
+      environments: parsed.environments,
+    })
+    return { ok: true as const, ...summary }
   })
 
   ipcMain.handle(ipcChannels.importPostman, async (_e, jsonText: string) => {

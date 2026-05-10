@@ -31,6 +31,11 @@ export const ui = {
     exportTitle: '导出工作区',
     newCollectionTitle: '新建集合',
     toastImported: '已导入集合',
+    /** c = collections, e = environments, renamed = rows auto-renamed for duplicate names */
+    toastMergedImport: (c: number, e: number, renamed: number) =>
+      renamed > 0
+        ? `已合并导入 ${c} 个集合、${e} 个环境（${renamed} 项因重名已自动重命名）`
+        : `已合并导入 ${c} 个集合、${e} 个环境`,
     toastExportOk: '已导出工作区',
     toastCreated: '已创建集合',
     /** 集合根节点重命名：与其它集合名称冲突（忽略首尾空格，英文不区分大小写） */

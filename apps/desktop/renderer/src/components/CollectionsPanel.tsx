@@ -150,20 +150,62 @@ export function CollectionsPanel() {
       if (!file) return
       try {
         const text = await file.text()
+        let parsed: unknown
+        try {
+          parsed = JSON.parse(text) as unknown
+        } catch {
+          showToast(`${ui.collections.importFail}：JSON 无效`, 'err')
+          return
+        }
+
+        const isPostman =
+          parsed &&
+          typeof parsed === 'object' &&
+          'info' in parsed &&
+          typeof (parsed as { info?: unknown }).info === 'object' &&
+          (parsed as { info: { schema?: unknown } }).info != null &&
+          String((parsed as { info: { schema?: string } }).info.schema ?? '').toLowerCase().includes(
+            'postman'
+          )
+
         const bridge = window.apiTester
-        if (bridge?.importPostman) {
-          await bridge.importPostman(text)
+
+        if (isPostman) {
+          if (bridge?.importPostman) {
+            await bridge.importPostman(text)
+            if (bridge.collectionsGetAll) {
+              const refreshed = await bridge.collectionsGetAll()
+              useWorkspaceStore.setState({ collections: refreshed })
+            }
+            showToast(ui.collections.toastImported)
+          } else {
+            const col = importPostmanCollectionV21(parsed)
+            if (!col) throw new Error(ui.collections.postmanError)
+            mergePostman(col)
+            showToast(`已导入「${col.name}」`)
+          }
+          return
+        }
+
+        if (bridge?.importWorkspaceMerge) {
+          const result = await bridge.importWorkspaceMerge(text)
           if (bridge.collectionsGetAll) {
             const refreshed = await bridge.collectionsGetAll()
             useWorkspaceStore.setState({ collections: refreshed })
           }
-          showToast(ui.collections.toastImported)
-        } else {
-          const col = importPostmanCollectionV21(JSON.parse(text) as unknown)
-          if (!col) throw new Error(ui.collections.postmanError)
-          mergePostman(col)
-          showToast(`已导入「${col.name}」`)
+          const renamed =
+            result.renamedCollections.length + result.renamedEnvironments.length
+          showToast(
+            ui.collections.toastMergedImport(
+              result.importedCollections,
+              result.importedEnvironments,
+              renamed
+            )
+          )
+          return
         }
+
+        showToast(`${ui.collections.importFail}：需在桌面应用内使用导入`, 'err')
       } catch (err) {
         showToast(`${ui.collections.importFail}：${(err as Error).message}`, 'err')
       }

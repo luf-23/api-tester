@@ -22,6 +22,7 @@ type ApiTesterApi = {
   mockStatus: () => Promise<unknown>
   exportWorkspace: () => Promise<unknown>
   importWorkspace: (jsonText: string) => Promise<unknown>
+  importWorkspaceMerge: (jsonText: string) => Promise<unknown>
   importPostman: (jsonText: string) => Promise<unknown>
 }
 
