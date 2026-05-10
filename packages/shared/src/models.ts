@@ -30,6 +30,11 @@ export interface RequestSendSettings {
   maxRedirects: number
   /** When false, TLS certificate verification is disabled (dev / self-signed only). */
   validateTls: boolean
+  /**
+   * Unless explicitly `false`, interactive Send uses a streaming response body (SSE, chunked text, etc.).
+   * Set to `false` in Settings to buffer the full body before updating the UI.
+   */
+  streamResponse?: boolean
 }
 
 export function defaultSendSettings(): RequestSendSettings {
@@ -37,6 +42,7 @@ export function defaultSendSettings(): RequestSendSettings {
     timeoutMs: 120_000,
     maxRedirects: 5,
     validateTls: true,
+    streamResponse: true,
   }
 }
 

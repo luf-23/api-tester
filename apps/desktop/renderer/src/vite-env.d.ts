@@ -2,6 +2,9 @@
 
 type ApiTesterApi = {
   sendHttp: (payload: unknown) => Promise<unknown>
+  sendHttpStream: (payload: unknown, onEvent: (evt: unknown) => void) => Promise<
+    { ok: true; response: unknown } | { ok: false; error: string }
+  >
   dbHealth: () => Promise<unknown>
   historyList: () => Promise<unknown>
   historyAdd: (entry: unknown) => Promise<unknown>

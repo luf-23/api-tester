@@ -125,6 +125,9 @@ export const ui = {
     settingsRedirectsHint: 'Max HTTP redirects to follow. Use 0 to disable.',
     settingsTls: 'Verify TLS certificates',
     settingsTlsHint: 'Turn off only for local dev with self-signed certificates (insecure).',
+    settingsBufferFullResponse: 'Buffer full response',
+    settingsBufferFullResponseHint:
+      'Disable streaming: wait for the entire body before updating the UI. Leave off for SSE and chunked responses. Collection runs always buffer.',
     scriptPre: 'Pre-request Script',
     subtabs: {
       params: 'Params',
@@ -138,6 +141,7 @@ export const ui = {
   response: {
     noResponse: 'No response yet — click Send.',
     sending: 'Sending request…',
+    streaming: 'Streaming…',
     okFallback: 'OK',
     sections: {
       body: 'Body',

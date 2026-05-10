@@ -8,12 +8,14 @@ if (!app.isPackaged) {
   app.commandLine.appendSwitch('remote-allow-origins', '*')
 }
 import {
+  httpStreamPushChannel,
   ipcChannels,
   mockStartSchema,
   sendHttpRequestSchema,
+  sendHttpStreamRequestSchema,
 } from '@api-tester/shared'
 import type { Collection, Environment, RequestWithTests } from '@api-tester/shared'
-import { sendRequest } from '@api-tester/http-client'
+import { sendRequest, sendRequestStream } from '@api-tester/http-client'
 import { openDatabase, tryParseWorkspaceBundle, WorkspaceStore } from '@api-tester/storage'
 import { importPostmanCollectionV21, runCollection } from '@api-tester/domain'
 import { resolveRequestForSend } from '@api-tester/domain/pre-request-script'
@@ -63,6 +65,7 @@ function resolvePreloadPath(): string {
 
 function createWindow(): void {
   const preload = resolvePreloadPath()
+  console.info('[main] Preload script:', preload)
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -118,6 +121,40 @@ app.whenReady().then(() => {
     }
     const result = await sendRequest(prep.request)
     return result
+  })
+
+  ipcMain.handle(ipcChannels.sendHttpStream, async (event, payload: unknown) => {
+    const parsed = sendHttpStreamRequestSchema.safeParse(payload)
+    if (!parsed.success) throw new Error('Invalid stream request payload')
+    const { request, streamSessionId } = parsed.data
+    const vars = { ...(parsed.data.environmentVariables ?? {}) }
+    const wc = event.sender
+
+    const prep = resolveRequestForSend(request, vars)
+    if (!prep.ok) {
+      return { ok: false as const, error: prep.error }
+    }
+
+    const result = await sendRequestStream(prep.request, {
+      onHeaders: (info) =>
+        wc.send(httpStreamPushChannel, {
+          streamSessionId,
+          phase: 'headers',
+          ...info,
+        }),
+      onChunk: (text) =>
+        wc.send(httpStreamPushChannel, {
+          streamSessionId,
+          phase: 'chunk',
+          text,
+        }),
+    })
+
+    if (result.error) {
+      return { ok: false as const, error: result.error }
+    }
+
+    return { ok: true as const, response: result.response }
   })
 
   ipcMain.handle(ipcChannels.historyList, async () => store!.listHistory())

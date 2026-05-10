@@ -152,11 +152,21 @@ export function ResponsePanel({ requestId }: Props) {
     return `${response.bodyText.slice(0, IMAGE_BODY_DISPLAY_CHAR_CAP)}\n\n…\n${ui.response.rawImageTruncated}`
   }, [response, imageLike])
 
-  if (state?.loading) {
+  if (state?.loading && !state?.streaming) {
     return (
       <section className="response">
         <div className="response__head">
           <span className="muted">{ui.response.sending}</span>
+        </div>
+      </section>
+    )
+  }
+
+  if (state?.loading && state?.streaming && !state?.response) {
+    return (
+      <section className="response">
+        <div className="response__head">
+          <span className="muted">{ui.response.streaming}</span>
         </div>
       </section>
     )
@@ -209,9 +219,15 @@ export function ResponsePanel({ requestId }: Props) {
           <span className={`status-pill ${statusClass(r.status)}`}>
             {formatStatusLine(r)}
           </span>
-          <span>{formatDuration(r.durationMs)}</span>
-          <span>{formatBytes(r.sizeBytes)}</span>
-          <span>{relativeTime(state?.receivedAt)}</span>
+          {state?.streaming ? (
+            <span className="muted">{ui.response.streaming}</span>
+          ) : (
+            <>
+              <span>{formatDuration(r.durationMs)}</span>
+              <span>{formatBytes(r.sizeBytes)}</span>
+              <span>{relativeTime(state?.receivedAt)}</span>
+            </>
+          )}
         </div>
       </div>
 

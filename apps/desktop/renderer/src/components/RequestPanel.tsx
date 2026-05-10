@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Collection, Environment, FolderNode, RequestWithTests, WorkspaceMeta } from '@api-tester/shared'
+import type {
+  Collection,
+  Environment,
+  FolderNode,
+  HttpStreamPushPayload,
+  RequestWithTests,
+  SendHttpStreamInvokeResult,
+  WorkspaceMeta,
+} from '@api-tester/shared'
 import { defaultSendSettings } from '@api-tester/shared'
 import { mergeVariables } from '@api-tester/domain'
 import { ui } from '../locale/ui'
@@ -111,12 +119,91 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   }, [onSaveNow])
 
   const onSend = async () => {
-    setResponse(request.id, { loading: true })
+    const sendOpts = { ...defaultSendSettings(), ...request.sendSettings }
+    const wantStream = sendOpts.streamResponse !== false
+    const canStream = typeof window.apiTester?.sendHttpStream === 'function'
+    if (wantStream && canStream) {
+      const streamSessionId = globalThis.crypto.randomUUID()
+      setResponse(request.id, { loading: true, streaming: true })
+      try {
+        const envVars = await loadMergedEnvironmentVariables()
+        const streamResult = (await window.apiTester.sendHttpStream(
+          { request, environmentVariables: envVars, streamSessionId },
+          (evt: HttpStreamPushPayload) => {
+            if (evt.streamSessionId !== streamSessionId) return
+            if (evt.phase === 'headers') {
+              setResponse(request.id, {
+                loading: true,
+                streaming: true,
+                response: {
+                  status: evt.status,
+                  statusText: evt.statusText,
+                  headers: evt.headers,
+                  bodyText: '',
+                  durationMs: 0,
+                  sizeBytes: 0,
+                },
+              })
+            } else if (evt.phase === 'chunk') {
+              const prev = useTabsStore.getState().responses[request.id]
+              const r = prev?.response
+              if (!r) return
+              const chunk = evt.text
+              const delta = new TextEncoder().encode(chunk).length
+              setResponse(request.id, {
+                ...prev,
+                loading: true,
+                streaming: true,
+                response: {
+                  ...r,
+                  bodyText: r.bodyText + chunk,
+                  sizeBytes: r.sizeBytes + delta,
+                },
+              })
+            }
+          }
+        )) as SendHttpStreamInvokeResult
+
+        if (!streamResult.ok) {
+          setResponse(request.id, {
+            loading: false,
+            streaming: false,
+            error: streamResult.error,
+            receivedAt: Date.now(),
+          })
+        } else {
+          setResponse(request.id, {
+            loading: false,
+            streaming: false,
+            response: streamResult.response,
+            error: undefined,
+            receivedAt: Date.now(),
+          })
+        }
+      } catch (e) {
+        setResponse(request.id, {
+          loading: false,
+          streaming: false,
+          error: e instanceof Error ? e.message : String(e),
+          receivedAt: Date.now(),
+        })
+      }
+      return
+    }
+
+    if (wantStream && !canStream) {
+      console.warn(
+        '[api-tester] Preload has no sendHttpStream — using buffered send. Restart the desktop app after build, or run `pnpm dev` from apps/desktop so preload is rebuilt.'
+      )
+    }
+
+    setResponse(request.id, { loading: true, streaming: false })
     try {
       const envVars = await loadMergedEnvironmentVariables()
       const out = await sendHttp(request, envVars)
       setResponse(request.id, {
         loading: false,
+        streaming: false,
         response: { ...out.response },
         error: out.error,
         receivedAt: Date.now(),
@@ -124,6 +211,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
     } catch (e) {
       setResponse(request.id, {
         loading: false,
+        streaming: false,
         error: e instanceof Error ? e.message : String(e),
         receivedAt: Date.now(),
       })
@@ -384,6 +472,16 @@ function RequestSendSettingsPanel({ request }: { request: RequestWithTests }) {
           <span className="request-settings__check-label">{ui.request.settingsTls}</span>
         </label>
         <p className="request-settings__hint muted request-settings__tls-hint">{ui.request.settingsTlsHint}</p>
+
+        <label className="request-settings__field request-settings__field--check">
+          <input
+            type="checkbox"
+            checked={merged.streamResponse === false}
+            onChange={(e) => patch({ streamResponse: e.target.checked ? false : true })}
+          />
+          <span className="request-settings__check-label">{ui.request.settingsBufferFullResponse}</span>
+        </label>
+        <p className="request-settings__hint muted">{ui.request.settingsBufferFullResponseHint}</p>
       </div>
     </div>
   )

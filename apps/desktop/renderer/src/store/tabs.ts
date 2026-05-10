@@ -3,6 +3,8 @@ import type { HttpResponseView } from '@api-tester/shared'
 
 export interface TabResponseState {
   loading: boolean
+  /** Response bytes arrive incrementally from the main process (Settings → Stream response). */
+  streaming?: boolean
   response?: HttpResponseView
   error?: string
   receivedAt?: number

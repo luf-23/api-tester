@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { HttpResponseView } from './models'
 
 export const keyValueSchema = z.object({
   id: z.string(),
@@ -13,6 +14,7 @@ export const requestSendSettingsSchema = z.object({
   timeoutMs: z.number().nonnegative().max(3_600_000),
   maxRedirects: z.number().int().min(0).max(100),
   validateTls: z.boolean(),
+  streamResponse: z.boolean().optional(),
 })
 
 export const requestDraftSchema = z
@@ -37,6 +39,28 @@ export const sendHttpRequestSchema = z.object({
 })
 
 export type SendHttpRequestInput = z.infer<typeof sendHttpRequestSchema>
+
+export const sendHttpStreamRequestSchema = sendHttpRequestSchema.extend({
+  streamSessionId: z.string().min(1),
+})
+
+export type SendHttpStreamRequestInput = z.infer<typeof sendHttpStreamRequestSchema>
+
+/** Main → renderer while a streamed HTTP response is in progress (preload listens). */
+export type HttpStreamPushPayload =
+  | {
+      streamSessionId: string
+      phase: 'headers'
+      status: number
+      statusText: string
+      headers: Record<string, string>
+    }
+  | { streamSessionId: string; phase: 'chunk'; text: string }
+
+/** Final body/meta must come from the invoke result — avoids races with preload removing the push listener. */
+export type SendHttpStreamInvokeResult =
+  | { ok: true; response: HttpResponseView }
+  | { ok: false; error: string }
 
 export const requestWithTestsSchema = requestDraftSchema.extend({
   preRequestScript: z.string().optional(),
@@ -65,6 +89,7 @@ export const mockStartSchema = z.object({
 
 export const ipcChannels = {
   sendHttp: 'http:send',
+  sendHttpStream: 'http:sendStream',
   dbHealth: 'db:health',
   historyList: 'history:list',
   historyAdd: 'history:add',
@@ -96,6 +121,9 @@ export const ipcChannels = {
 
 /** Main → renderer (preload listens on this channel). */
 export const updaterPushChannel = 'updater:event' as const
+
+/** Main → renderer: incremental HTTP response body while streaming is enabled. */
+export const httpStreamPushChannel = 'http:streamEvent' as const
 
 export type UpdaterPushPayload =
   | { type: 'checking' }

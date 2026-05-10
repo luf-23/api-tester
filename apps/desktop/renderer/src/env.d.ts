@@ -1,6 +1,12 @@
 /// <reference types="vite/client" />
 
-import type { Collection, RequestDraft, UpdaterPushPayload } from '@api-tester/shared'
+import type {
+  Collection,
+  HttpStreamPushPayload,
+  RequestDraft,
+  SendHttpStreamInvokeResult,
+  UpdaterPushPayload,
+} from '@api-tester/shared'
 
 declare global {
   interface Window {
@@ -18,6 +24,14 @@ declare global {
         }
         error?: string
       }>
+      sendHttpStream: (
+        payload: {
+          request: RequestDraft
+          environmentVariables?: Record<string, string>
+          streamSessionId: string
+        },
+        onEvent: (evt: HttpStreamPushPayload) => void
+      ) => Promise<SendHttpStreamInvokeResult>
       dbHealth: () => Promise<{ ok: boolean }>
       historyList: () => Promise<unknown[]>
       historyAdd: (entry: unknown) => Promise<{ ok: boolean }>

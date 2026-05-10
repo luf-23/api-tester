@@ -1,8 +1,29 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { ipcChannels, updaterPushChannel, type UpdaterPushPayload } from '@api-tester/shared'
+import {
+  httpStreamPushChannel,
+  ipcChannels,
+  updaterPushChannel,
+  type HttpStreamPushPayload,
+  type SendHttpStreamInvokeResult,
+  type UpdaterPushPayload,
+} from '@api-tester/shared'
 
 const api = {
   sendHttp: (payload: unknown) => ipcRenderer.invoke(ipcChannels.sendHttp, payload),
+  sendHttpStream: (payload: unknown, onEvent: (evt: HttpStreamPushPayload) => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, evt: HttpStreamPushPayload) => {
+      onEvent(evt)
+    }
+    ipcRenderer.on(httpStreamPushChannel, listener)
+    return ipcRenderer
+      .invoke(ipcChannels.sendHttpStream, payload)
+      .finally(() => {
+        /** Let any pushes delivered in the same tick run before unregistering (extra safety). */
+        queueMicrotask(() => {
+          ipcRenderer.removeListener(httpStreamPushChannel, listener)
+        })
+      }) as Promise<SendHttpStreamInvokeResult>
+  },
   dbHealth: () => ipcRenderer.invoke(ipcChannels.dbHealth),
   historyList: () => ipcRenderer.invoke(ipcChannels.historyList),
   historyAdd: (entry: unknown) => ipcRenderer.invoke(ipcChannels.historyAdd, entry),

@@ -1,6 +1,7 @@
 import axios, { type AxiosRequestConfig } from 'axios'
 import FormData from 'form-data'
 import https from 'node:https'
+import type { Readable } from 'node:stream'
 import {
   defaultSendSettings,
   type HttpResponseView,
@@ -11,6 +12,11 @@ import {
 export interface SendResult {
   response: HttpResponseView
   error?: string
+}
+
+export interface StreamHandlers {
+  onHeaders: (info: { status: number; statusText: string; headers: Record<string, string> }) => void
+  onChunk: (text: string) => void
 }
 
 function buildUrlWithParams(baseUrl: string, params: RequestDraft['params']): string {
@@ -29,7 +35,11 @@ function effectiveSendSettings(draft: RequestDraft): RequestSendSettings {
   return { ...base, ...s }
 }
 
-export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
+type BuildConfigResult =
+  | { ok: false; result: SendResult }
+  | { ok: true; config: AxiosRequestConfig }
+
+function buildAxiosConfig(draft: RequestDraft): BuildConfigResult {
   const url = buildUrlWithParams(draft.url, draft.params)
   const headers: Record<string, string> = {}
   for (const h of draft.headers) {
@@ -38,7 +48,6 @@ export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
   }
 
   const send = effectiveSendSettings(draft)
-  const started = Date.now()
   const config: AxiosRequestConfig = {
     method: draft.method,
     url,
@@ -46,8 +55,6 @@ export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
     validateStatus: () => true,
     maxRedirects: send.maxRedirects,
     timeout: send.timeoutMs === 0 ? 0 : send.timeoutMs,
-    /** Single responseType avoids axios merge quirks with `text` + overridden `arraybuffer`. */
-    responseType: 'arraybuffer',
     transformResponse: [(data) => data],
   }
   if (!send.validateTls) {
@@ -65,8 +72,11 @@ export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
         }
       } catch {
         return {
-          response: emptyResponse(Date.now() - started),
-          error: 'Invalid JSON body',
+          ok: false,
+          result: {
+            response: emptyResponse(0),
+            error: 'Invalid JSON body',
+          },
         }
       }
     } else if (draft.bodyMode === 'text') {
@@ -93,6 +103,19 @@ export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
     }
   }
 
+  return { ok: true, config }
+}
+
+export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
+  const built = buildAxiosConfig(draft)
+  if (!built.ok) return built.result
+
+  const started = Date.now()
+  const config: AxiosRequestConfig = {
+    ...built.config,
+    responseType: 'arraybuffer',
+  }
+
   try {
     const res = await axios.request(config)
     const durationMs = Date.now() - started
@@ -114,6 +137,78 @@ export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
       ...preview,
     }
     return { response }
+  } catch (e) {
+    const durationMs = Date.now() - started
+    return {
+      response: emptyResponse(durationMs),
+      error: e instanceof Error ? e.message : String(e),
+    }
+  }
+}
+
+export async function sendRequestStream(
+  draft: RequestDraft,
+  handlers: StreamHandlers
+): Promise<SendResult> {
+  const built = buildAxiosConfig(draft)
+  if (!built.ok) return built.result
+
+  const started = Date.now()
+  const config: AxiosRequestConfig = {
+    ...built.config,
+    responseType: 'stream',
+    /** Let Node receive raw bytes; axios default transforms break streaming. */
+    transformResponse: [(data) => data],
+  }
+
+  try {
+    const res = await axios.request(config)
+    const outHeaders: Record<string, string> = {}
+    for (const [k, v] of Object.entries(res.headers as Record<string, unknown>)) {
+      if (typeof v === 'string') outHeaders[k] = v
+      else if (Array.isArray(v)) outHeaders[k] = v.join(', ')
+    }
+
+    handlers.onHeaders({
+      status: res.status,
+      statusText: res.statusText ?? '',
+      headers: outHeaders,
+    })
+
+    const stream = res.data as Readable
+    const chunks: Buffer[] = []
+    const decoder = new TextDecoder('utf-8', { fatal: false })
+
+    return await new Promise((resolve) => {
+      stream.on('data', (chunk: Buffer) => {
+        chunks.push(chunk)
+        handlers.onChunk(decoder.decode(chunk, { stream: true }))
+      })
+      stream.on('end', () => {
+        handlers.onChunk(decoder.decode())
+        const bytes = Buffer.concat(chunks)
+        const bodyText = utf8DecodeLossy(new Uint8Array(bytes))
+        const durationMs = Date.now() - started
+        const preview = imagePreviewFields(new Uint8Array(bytes), outHeaders)
+        resolve({
+          response: {
+            status: res.status,
+            statusText: res.statusText ?? '',
+            headers: outHeaders,
+            bodyText,
+            durationMs,
+            sizeBytes: bytes.byteLength,
+            ...preview,
+          },
+        })
+      })
+      stream.on('error', (err: Error) => {
+        resolve({
+          response: emptyResponse(Date.now() - started),
+          error: err.message,
+        })
+      })
+    })
   } catch (e) {
     const durationMs = Date.now() - started
     return {
