@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { HttpResponseView } from '@api-tester/shared'
 import { ui } from '../locale/ui'
 import { useTabsStore } from '../store/tabs'
 import { formatBytes, formatDuration, safeParseJson, statusClass, tryFormatJson } from '../lib/format'
@@ -13,10 +14,9 @@ const SECTIONS = [
 type Section = (typeof SECTIONS)[number]
 
 const VIEW_TABS = [
-  ui.response.views.pretty,
+  ui.response.views.json,
   ui.response.views.raw,
   ui.response.views.preview,
-  ui.response.views.visualize,
 ] as const
 type ViewTab = (typeof VIEW_TABS)[number]
 
@@ -47,12 +47,74 @@ function emptySectionCounts(): Record<Section, number> {
   }
 }
 
+function contentTypeFromHeaders(headers: Record<string, string>): string {
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() === 'content-type' && typeof v === 'string') {
+      return v.split(';')[0].trim().toLowerCase()
+    }
+  }
+  return ''
+}
+
+function responseImagePreview(r: HttpResponseView): { src: string; mime: string } | undefined {
+  if (!r.bodyBase64) return undefined
+  let mime = r.bodyMime?.trim() ?? ''
+  if (!mime.startsWith('image/')) mime = contentTypeFromHeaders(r.headers)
+  if (!mime.startsWith('image/')) return undefined
+  return { src: `data:${mime};base64,${r.bodyBase64}`, mime }
+}
+
+const PREVIEW_MAX_MB = 15
+const PREVIEW_MAX_BYTES = PREVIEW_MAX_MB * 1024 * 1024
+
+/** True only when server claims image/* and body is too large to embed (not other bugs/missing fields). */
+function responseImageTooLargeForPreview(r: HttpResponseView): boolean {
+  const ct = contentTypeFromHeaders(r.headers)
+  return ct.startsWith('image/') && !r.bodyBase64 && r.sizeBytes > PREVIEW_MAX_BYTES
+}
+
+/** image/* and small body but no base64 preview — wrong generic message otherwise. */
+function responseImagePreviewMissing(r: HttpResponseView): boolean {
+  const ct = contentTypeFromHeaders(r.headers)
+  return (
+    ct.startsWith('image/') &&
+    !r.bodyBase64 &&
+    r.sizeBytes > 0 &&
+    r.sizeBytes <= PREVIEW_MAX_BYTES
+  )
+}
+
+/** Image/* (or sniffed image with bodyMime) — body is not JSON; skip parse/highlight on huge decoded text. */
+function isImageLikeResponse(r: HttpResponseView): boolean {
+  const ct = contentTypeFromHeaders(r.headers)
+  if (ct.startsWith('image/')) return true
+  const mime = r.bodyMime?.trim().toLowerCase() ?? ''
+  return mime.startsWith('image/')
+}
+
+/** Max chars rendered in Raw / JSON fallback for image bodies — avoids multi‑MB DOM and tokenizer stalls. */
+const IMAGE_BODY_DISPLAY_CHAR_CAP = 96 * 1024
+
 export function ResponsePanel({ requestId }: Props) {
   const state = useTabsStore((s) => s.responses[requestId])
   const [section, setSection] = useState<Section>(SECTIONS[0])
   const [view, setView] = useState<ViewTab>(VIEW_TABS[0])
+  const prevRequestId = useRef(requestId)
 
   const response = state?.response
+
+  useEffect(() => {
+    if (state?.loading) return
+    const r = state?.response
+    const switchedTab = prevRequestId.current !== requestId
+    if (switchedTab) {
+      prevRequestId.current = requestId
+      if (r && responseImagePreview(r)) setView(VIEW_TABS[2])
+      else setView(VIEW_TABS[0])
+      return
+    }
+    if (state?.receivedAt && r && responseImagePreview(r)) setView(VIEW_TABS[2])
+  }, [requestId, state?.response, state?.loading, state?.receivedAt])
   const sectionCounts = useMemo(() => {
     if (!response) return emptySectionCounts()
     const headerCount = Object.keys(response.headers).length
@@ -63,6 +125,32 @@ export function ResponsePanel({ requestId }: Props) {
       [SECTIONS[2]]: headerCount,
     } satisfies Record<Section, number>
   }, [response])
+
+  const imageLike = useMemo(
+    () => (response ? isImageLikeResponse(response) : false),
+    [response]
+  )
+
+  const { formatted, json } = useMemo(() => {
+    if (!response) {
+      return { formatted: { pretty: '', ok: false as const }, json: undefined as unknown }
+    }
+    if (imageLike) {
+      return { formatted: { pretty: '', ok: false as const }, json: undefined as unknown }
+    }
+    return {
+      formatted: tryFormatJson(response.bodyText),
+      json: safeParseJson(response.bodyText),
+    }
+  }, [response, imageLike])
+
+  const rawDisplayText = useMemo(() => {
+    if (!response) return ''
+    if (!imageLike || response.bodyText.length <= IMAGE_BODY_DISPLAY_CHAR_CAP) {
+      return response.bodyText
+    }
+    return `${response.bodyText.slice(0, IMAGE_BODY_DISPLAY_CHAR_CAP)}\n\n…\n${ui.response.rawImageTruncated}`
+  }, [response, imageLike])
 
   if (state?.loading) {
     return (
@@ -97,8 +185,9 @@ export function ResponsePanel({ requestId }: Props) {
   }
 
   const r = response
-  const formatted = tryFormatJson(r.bodyText)
-  const json = safeParseJson(r.bodyText)
+  const imgPreview = responseImagePreview(r)
+  const imageTooLarge = responseImageTooLargeForPreview(r)
+  const imagePreviewMissing = responseImagePreviewMissing(r)
 
   return (
     <section className="response">
@@ -138,22 +227,34 @@ export function ResponsePanel({ requestId }: Props) {
               >{v}</button>
             ))}
             {section === SECTIONS[0] && <div className="viewbar__spacer" />}
-            {section === SECTIONS[0] && (
-              <select className="viewbar-pick" defaultValue="JSON">
-                <option>JSON</option>
-                <option>HTML</option>
-                <option>XML</option>
-                <option>Text</option>
-              </select>
-            )}
           </div>
-          {section === SECTIONS[0] && (
-            view === VIEW_TABS[1] ? (
-              <pre className="response__raw-pre">{r.bodyText}</pre>
+          {section === SECTIONS[0] &&
+            (view === VIEW_TABS[1] ? (
+              <>
+                {imgPreview && (
+                  <p className="response__binary-hint muted">{ui.response.imageBinaryHint}</p>
+                )}
+                <pre className="response__raw-pre">{rawDisplayText}</pre>
+              </>
+            ) : view === VIEW_TABS[2] ? (
+              imgPreview ? (
+                <div className="response__image-preview">
+                  <img src={imgPreview.src} alt="" draggable={false} />
+                </div>
+              ) : imageTooLarge ? (
+                <div className="response__preview-empty dim">{ui.response.previewTooLarge(PREVIEW_MAX_MB)}</div>
+              ) : imagePreviewMissing ? (
+                <div className="response__preview-empty dim">{ui.response.previewImageMissing}</div>
+              ) : (
+                <div className="response__preview-empty dim">{ui.response.previewNoVisual}</div>
+              )
+            ) : imageLike ? (
+              <div className="response__preview-empty dim" style={{ padding: 12 }}>
+                {ui.response.imageNotJsonBody}
+              </div>
             ) : (
               <JsonView text={formatted.pretty} />
-            )
-          )}
+            ))}
           {section === SECTIONS[2] && <HeadersList headers={r.headers} />}
           {section === SECTIONS[1] && <CookiesList headers={r.headers} />}
         </div>

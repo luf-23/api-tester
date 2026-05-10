@@ -662,6 +662,44 @@ body.is-resizing-row .resize-handle--row::after {
 .confirm-dialog__btn--danger:hover {
   background: color-mix(in srgb, var(--status-4xx, #d14545) 22%, var(--bg-elevated));
 }
+.confirm-dialog__btn--primary {
+  border-color: var(--accent-ring);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.confirm-dialog__btn--primary:hover {
+  background: var(--accent-strong);
+}
+
+.confirm-dialog--bulk {
+  width: min(520px, 100%);
+  max-height: min(78vh, 620px);
+  display: flex;
+  flex-direction: column;
+}
+.bulk-kv-modal__hint {
+  margin-bottom: 10px;
+}
+.bulk-kv-modal__textarea {
+  flex: 1;
+  min-height: 200px;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-app, var(--bg-shell));
+  color: var(--text-primary);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.45;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.bulk-kv-modal__textarea:focus {
+  outline: none;
+  border-color: var(--accent-ring);
+  box-shadow: 0 0 0 1px var(--accent-ring);
+}
 
 /* ---------- Top bar (VS Code–style editor tabs) ---------- */
 .topbar {
@@ -851,7 +889,20 @@ body.is-resizing-row .resize-handle--row::after {
 .btn--split { padding-right: 8px; }
 .btn svg { width: 16px; height: 16px; }
 
-.url-bar { padding: 6px 14px 8px; display: flex; gap: 8px; }
+.url-bar { padding: 6px 14px 8px; display: flex; gap: 8px; align-items: stretch; }
+.url-bar__send {
+  flex: none;
+  align-self: stretch;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: var(--fs-caption);
+  font-weight: 700;
+}
+.url-bar__send svg {
+  width: 14px;
+  height: 14px;
+}
 .method-pick {
   position: relative;
   flex: none;
@@ -946,27 +997,6 @@ body.is-resizing-row .resize-handle--row::after {
   outline: 0;
 }
 .url-input:focus { border-color: var(--accent-ring); box-shadow: 0 0 0 3px var(--accent-soft); }
-.send-group { display: flex; align-items: stretch; }
-.send-group .btn--primary {
-  height: 36px; padding: 0 16px;
-  border-radius: var(--radius-ui) 0 0 var(--radius-ui);
-  min-height: 0;
-  font-size: var(--fs-caption);
-  font-weight: 700;
-}
-.send-group .btn--primary svg {
-  width: 14px;
-  height: 14px;
-}
-.send-group__more {
-  height: 36px; width: 34px;
-  background: var(--accent); color: var(--on-accent);
-  border: 0; border-left: 1px solid rgba(0, 0, 0, 0.12);
-  border-top-right-radius: var(--radius-ui); border-bottom-right-radius: var(--radius-ui);
-  display: grid; place-items: center;
-}
-.send-group__more:hover { background: var(--accent-strong); color: var(--on-accent); }
-
 .subtabs {
   display: flex;
   align-items: stretch;
@@ -1600,14 +1630,6 @@ body.is-resizing-row .resize-handle--row::after {
 .viewbar-tab:hover { color: var(--text-primary); }
 .viewbar-tab.is-active { color: var(--text-primary); background: var(--bg-elevated); }
 .viewbar__spacer { flex: 1; }
-.viewbar-pick {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  padding: 4px 9px;
-  color: var(--text-primary);
-  font-size: var(--fs-caption);
-}
 
 .json-view {
   flex: 1;
@@ -1772,6 +1794,42 @@ body.is-resizing-row .resize-handle--row::after {
   color: var(--text-primary);
   user-select: text;
   -webkit-user-select: text;
+}
+
+.response__binary-hint {
+  margin: 0;
+  padding: 8px 12px 0;
+  font-size: var(--fs-caption);
+  line-height: 1.45;
+}
+
+.response__image-preview {
+  flex: 1;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow: auto;
+  background: color-mix(in srgb, var(--bg-panel) 88%, var(--border-subtle));
+  border-radius: 4px;
+}
+.response__image-preview img {
+  max-width: 100%;
+  max-height: min(62vh, 560px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+.response__preview-empty {
+  flex: 1;
+  min-height: 120px;
+  padding: 20px 16px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .response__mono-scroll {

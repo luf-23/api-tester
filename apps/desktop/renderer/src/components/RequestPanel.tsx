@@ -6,10 +6,11 @@ import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 import { sendHttp } from '../lib/api'
 import { tryFormatJson } from '../lib/format'
+import { BulkKvModal } from './BulkKvModal'
 import { JsonBodyEditor } from './JsonBodyEditor'
 import { KeyValueEditor } from './KeyValueEditor'
 import { MethodPick } from './MethodPick'
-import { IconChevDown, IconSave, IconSend } from './icons'
+import { IconSave, IconSend } from './icons'
 
 const SUBTABS = [
   { id: 'params' as const, label: ui.request.subtabs.params },
@@ -58,6 +59,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   const setResponse = useTabsStore((s) => s.setResponse)
   const [active, setActive] = useState<SubtabId>('params')
   const [saveHint, setSaveHint] = useState<string | null>(null)
+  const [paramsBulkOpen, setParamsBulkOpen] = useState(false)
 
   const enabledHeaders = request.headers.filter((h) => h.enabled && h.key)
 
@@ -99,14 +101,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
       const out = await sendHttp(request)
       setResponse(request.id, {
         loading: false,
-        response: {
-          status: out.response.status,
-          statusText: out.response.statusText,
-          headers: out.response.headers,
-          bodyText: out.response.bodyText,
-          durationMs: out.response.durationMs,
-          sizeBytes: out.response.sizeBytes,
-        },
+        response: { ...out.response },
         error: out.error,
         receivedAt: Date.now(),
       })
@@ -150,14 +145,9 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           placeholder={ui.request.urlPlaceholder}
           spellCheck={false}
         />
-        <div className="send-group">
-          <button type="button" className="btn btn--primary" onClick={onSend}>
-            <IconSend /> {ui.request.send}
-          </button>
-          <button type="button" className="send-group__more" title={ui.request.sendOptions}>
-            <IconChevDown width={16} height={16} />
-          </button>
-        </div>
+        <button type="button" className="btn btn--primary url-bar__send" onClick={onSend}>
+          <IconSend /> {ui.request.send}
+        </button>
       </div>
 
       <nav className="subtabs">
@@ -184,7 +174,11 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           <>
             <div className="kv__title-row">
               <h4 className="request-subpanel__title">{ui.request.queryParams}</h4>
-              <button type="button" className="kv__bulk">
+              <button
+                type="button"
+                className="kv__bulk"
+                onClick={() => setParamsBulkOpen(true)}
+              >
                 {ui.request.bulkEdit}
               </button>
             </div>
@@ -192,6 +186,16 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
               rows={request.params}
               onChange={(rows) => setKv(request.id, 'params', rows)}
             />
+            {paramsBulkOpen && (
+              <BulkKvModal
+                rows={request.params}
+                onClose={() => setParamsBulkOpen(false)}
+                onApply={(next) => {
+                  setKv(request.id, 'params', next)
+                  setParamsBulkOpen(false)
+                }}
+              />
+            )}
           </>
         )}
         {active === 'headers' && (

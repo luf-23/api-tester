@@ -89,10 +89,14 @@ export const ui = {
     viewCode: 'View code',
     urlPlaceholder: 'https://api.example.com/v1/resource',
     send: 'Send',
-    sendOptions: 'Send options',
     cookiesLink: 'Cookies',
     queryParams: 'Query Params',
     bulkEdit: 'Bulk Edit',
+    bulkEditTitle: 'Bulk edit query params',
+    bulkEditHint:
+      'One parameter per line. Use key=value or key: value. Lines starting with # are disabled.',
+    bulkEditApply: 'Apply',
+    bulkEditCancel: 'Cancel',
     headersTitle: 'Headers',
     bodyModes: {
       none: 'None',
@@ -135,11 +139,23 @@ export const ui = {
       headers: 'Headers',
     },
     views: {
-      pretty: 'Pretty',
+      json: 'JSON',
       raw: 'Raw',
       preview: 'Preview',
-      visualize: 'Visualize',
     },
+    previewNoVisual:
+      'No visual preview for this response. Use JSON or Raw for text and structured data.',
+    /** Small image/* response but preview payload missing (e.g. stale client). */
+    previewImageMissing:
+      'Image preview is unavailable for this response. Send again, or restart the app if you just updated.',
+    previewTooLarge: (maxMb: number) =>
+      `Image is larger than ${maxMb} MB — preview is disabled to save memory.`,
+    imageBinaryHint: 'Binary image body — open Preview to render it; JSON/Raw text may look garbled.',
+    /** JSON tab when Content-Type is image/* (body is not JSON). */
+    imageNotJsonBody:
+      'This response is image/binary data, not JSON. Use the Preview tab to view the image.',
+    /** Raw tab when image body is truncated to keep the UI responsive. */
+    rawImageTruncated: 'Showing only the start of the decoded body for performance — open Preview for the full image.',
     explorerTitle: 'Response Explorer',
     explorerValueKey: 'value',
     searchResponse: 'Search response',

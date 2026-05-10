@@ -63,6 +63,10 @@ export interface HttpResponseView {
   bodyText: string
   durationMs: number
   sizeBytes: number
+  /** Base64-encoded raw body when preview is available (see `bodyMime`). */
+  bodyBase64?: string
+  /** MIME type for `bodyBase64` data URL (e.g. image/png). */
+  bodyMime?: string
 }
 
 export interface HistoryEntry {

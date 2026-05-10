@@ -13,6 +13,8 @@ declare global {
           bodyText: string
           durationMs: number
           sizeBytes: number
+          bodyBase64?: string
+          bodyMime?: string
         }
         error?: string
       }>
