@@ -1,107 +1,87 @@
-; Install into the same folder as the setup .exe ($EXEDIR) on first install only.
-; On auto-update the Setup runs from %TEMP%; writing EXEDIR there breaks $INSTDIR and triggers bogus
-; "cannot close the app" / copy retries. electron-updater passes /D when installDirectory is set (see updater.ts).
+; Layout: <setup-dir>\API-Tester\app = program, <setup-dir>\API-Tester\data = user data (Electron userData, see main/index.ts).
+; Normal install: always under $EXEDIR\API-Tester\app — not LocalAppData\Programs or Program Files.
+; Auto-update: setup runs from %TEMP% with /D=... — preInit must NOT overwrite InstallLocation (--updated).
 
-; Layout: $Programs\API-Tester\app = application (installer only touches this tree).
-; User data lives beside it in $Programs\API-Tester\data (created at runtime, not removed by upgrade).
-; No Desktop / Start Menu shortcuts (package.json nsis). Optional .lnk only under API-Tester\ (see customInstall).
-
-; After quitAndInstall, Electron may still leave GPU/utility processes holding the exe — NSIS then shows
-; "cannot close the app". End the whole process tree (${PRODUCT_FILENAME}.exe = packaged main binary).
 !include "FileFunc.nsh"
 
-; Replace electron-builder CHECK_APP_RUNNING — PowerShell Path.StartsWith($INSTDIR) / tasklist can
-; false-positive and show "$(appCannotBeClosed)". Uninstall-old-version retry loop uses the same string.
-; Use SysDir taskkill + APP_EXECUTABLE_FILENAME (actual exe on disk; PRODUCT_FILENAME can differ).
-; nsExec::Exec runs hidden — ExecWait on taskkill.exe flashes a CMD window each time.
-!macro apitester_kill_app_processes
-  StrCpy $R8 0
-  apitester_kill_retry:
-    nsExec::Exec `"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}" /T`
-    Pop $R0
-    Sleep 800
-    IntOp $R8 $R8 + 1
-    IntCmp $R8 4 apitester_kill_done apitester_kill_retry apitester_kill_retry
-  apitester_kill_done:
-  Sleep 700
+; electron-builder CHECK_APP_RUNNING uses PowerShell Win32_Process Path.StartsWith($INSTDIR) — easy false positives.
+; Uninstall-old-version retry loop uses the same "$(appCannotBeClosed)" string — killing here helps both.
+!macro apitester_kill_tree
+  nsExec::Exec `"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}" /T`
+  Pop $R0
+  Sleep 600
+  nsExec::Exec `"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}" /T`
+  Pop $R0
+  Sleep 400
 !macroend
 
 !macro customCheckAppRunning
-  !insertmacro apitester_kill_app_processes
+  !insertmacro apitester_kill_tree
 !macroend
 
 !macro customInit
-  !insertmacro apitester_kill_app_processes
+  !insertmacro apitester_kill_tree
 
-  ; Runs after initMultiUser — $INSTDIR is default $Programs\${APP_FILENAME}, preInit EXEDIR, or /D from upgrade.
-  ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
-    Goto apitester_layout_done
-  ${EndIf}
-  ${GetParent} $R4 "$INSTDIR"
-  StrCmp "$INSTDIR" "$R4\${APP_FILENAME}" apitester_layout_std_default apitester_layout_nested_under_choice
-  apitester_layout_std_default:
-    StrCpy $INSTDIR "$R4\API-Tester\app"
-    Goto apitester_layout_done
-  apitester_layout_nested_under_choice:
-  ; Install next to setup.exe (EXEDIR) or any custom folder: ...\API-Tester\app
-  StrCpy $INSTDIR "$INSTDIR\API-Tester\app"
-  apitester_layout_done:
-
-  ; ---------------------------------------------------------------------------
-  ; Block Windows default / system install roots on normal setup (not auto-update).
-  ; Otherwise electron-builder falls back to %LOCALAPPDATA%\Programs (usually on C:).
-  ; Auto-update (--updated) keeps /D so upgrades do not jump to EXEDIR (often %TEMP%).
-  ; ---------------------------------------------------------------------------
+  ; initMultiUser has already set $INSTDIR from registry + optional /D (auto-update uses /D to real app folder).
   ${GetParameters} $R8
   ClearErrors
   ${GetOptions} $R8 "--updated" $R7
   ${IfNot} ${Errors}
-    Goto apitester_forbid_done
+    Goto apitester_done
   ${EndIf}
 
+  ; Fresh install / manual run: force layout next to setup.exe (never stay on C: default roots).
   ReadEnvStr $R7 LOCALAPPDATA
   StrCpy $R8 "$R7\Programs"
   StrLen $R9 $R8
-  StrCmp $R9 0 apitester_chk_pf64
+  StrCmp $R9 0 apitester_pf64
   StrCpy $R6 "$INSTDIR" $R9
-  StrCmp $R6 $R8 apitester_reloc_exedir apitester_chk_pf64
+  StrCmp $R6 $R8 apitester_use_exedir apitester_pf64
 
-  apitester_chk_pf64:
+  apitester_pf64:
   StrLen $R9 "$PROGRAMFILES64"
-  StrCmp $R9 0 apitester_chk_pf32
+  StrCmp $R9 0 apitester_pf32
   StrCpy $R6 "$INSTDIR" $R9
-  StrCmp $R6 "$PROGRAMFILES64" apitester_reloc_exedir apitester_chk_pf32
+  StrCmp $R6 "$PROGRAMFILES64" apitester_use_exedir apitester_pf32
 
-  apitester_chk_pf32:
+  apitester_pf32:
   StrLen $R9 "$PROGRAMFILES"
-  StrCmp $R9 0 apitester_forbid_done
+  StrCmp $R9 0 apitester_fix_legacy
   StrCpy $R6 "$INSTDIR" $R9
-  StrCmp $R6 "$PROGRAMFILES" apitester_reloc_exedir apitester_forbid_done
+  StrCmp $R6 "$PROGRAMFILES" apitester_use_exedir apitester_fix_legacy
 
-  apitester_reloc_exedir:
+  apitester_fix_legacy:
+  ; Old bug: InstallLocation was only $EXEDIR — repair to ...\API-Tester\app
+  StrCmp "$INSTDIR" "$EXEDIR" apitester_use_exedir
+  ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+    Goto apitester_done
+  ${EndIf}
+  StrCmp "$INSTDIR" "$EXEDIR\API-Tester\app" apitester_done apitester_use_exedir
+
+  apitester_use_exedir:
   ReadEnvStr $R7 LOCALAPPDATA
   StrCpy $R8 "$R7\Temp"
   StrLen $R9 $R8
-  StrCmp $R9 0 apitester_reloc_do
+  StrCmp $R9 0 apitester_reloc_ok
   StrCpy $R6 "$EXEDIR" $R9
-  StrCmp $R6 $R8 apitester_abort_temp_exedir apitester_reloc_do
+  StrCmp $R6 $R8 apitester_abort_temp apitester_reloc_ok
 
-  apitester_abort_temp_exedir:
-  MessageBox MB_OK|MB_ICONSTOP "不能从系统临时目录安装。请将 API-Tester-Setup.exe 复制到目标磁盘上的普通文件夹后再运行。"
+  apitester_abort_temp:
+  MessageBox MB_OK|MB_ICONSTOP "不能从系统临时目录安装。请将 API-Tester-Setup.exe 复制到普通文件夹后再运行。"
   Abort
 
-  apitester_reloc_do:
-  IfSilent apitester_skip_reloc_msg apitester_show_reloc_msg
-  apitester_show_reloc_msg:
-  MessageBox MB_OK|MB_ICONINFORMATION "检测到系统默认安装目录（Program Files 或 AppData\Local\Programs）。$\r$\n已改为安装包所在目录：$\r$\n$EXEDIR\API-Tester\"
-  apitester_skip_reloc_msg:
+  apitester_reloc_ok:
+  IfSilent apitester_skip_msg apitester_show_msg
+  apitester_show_msg:
+  MessageBox MB_OK|MB_ICONINFORMATION "安装目录已设为安装包所在位置：$\r$\n$EXEDIR\API-Tester\"
+  apitester_skip_msg:
   StrCpy $INSTDIR "$EXEDIR\API-Tester\app"
   SetRegView 64
-  WriteRegStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "$EXEDIR"
+  WriteRegStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "$INSTDIR"
   SetRegView 32
-  WriteRegStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "$EXEDIR"
+  WriteRegStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "$INSTDIR"
 
-  apitester_forbid_done:
+  apitester_done:
 !macroend
 
 !macro preInit
@@ -111,7 +91,8 @@
   ${IfNot} ${Errors}
     Goto preInit_done
   ${EndIf}
-  StrCpy $R9 "$EXEDIR"
+  ; Full app path so initMultiUser does not set $INSTDIR to $EXEDIR alone (that broke detection / layout).
+  StrCpy $R9 "$EXEDIR\API-Tester\app"
   SetRegView 64
   WriteRegStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation $R9
   SetRegView 32
@@ -119,27 +100,11 @@
   preInit_done:
 !macroend
 
-; Shortcut beside app\ + data\ — same CreateShortCut style as electron-builder (paths with spaces).
+; Shortcut targets ${APP_EXECUTABLE_FILENAME} (win.executableName in package.json — no spaces; avoids broken .lnk / “正在查找 …exe”).
 !macro customInstall
-  ${GetParent} $R0 "$INSTDIR"
-  ${GetFileName} $R1 "$R0"
-  StrCmp $R1 "API-Tester" apitester_do_local_shortcut
-  StrCmp $R1 "api-tester" apitester_do_local_shortcut
-  StrCmp $R1 "Api-Tester" apitester_do_local_shortcut
-  Goto apitester_skip_local_shortcut
-  apitester_do_local_shortcut:
-  CreateShortcut "$INSTDIR\..\${SHORTCUT_NAME}.lnk" "$appExe" "" "$appExe" 0 "" "" "${APP_DESCRIPTION}"
-  apitester_skip_local_shortcut:
+  CreateShortcut "$INSTDIR\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" 0 "" "" "${APP_DESCRIPTION}"
 !macroend
 
 !macro customUnInstall
-  ${GetParent} $R0 "$INSTDIR"
-  ${GetFileName} $R1 "$R0"
-  StrCmp $R1 "API-Tester" apitester_do_un_shortcut
-  StrCmp $R1 "api-tester" apitester_do_un_shortcut
-  StrCmp $R1 "Api-Tester" apitester_do_un_shortcut
-  Goto apitester_skip_un_shortcut
-  apitester_do_un_shortcut:
-  Delete "$INSTDIR\..\${SHORTCUT_NAME}.lnk"
-  apitester_skip_un_shortcut:
+  Delete "$INSTDIR\${SHORTCUT_NAME}.lnk"
 !macroend

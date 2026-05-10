@@ -63,6 +63,7 @@
       "package.json"
     ],
     "win": {
+      "executableName": "API-Tester",
       "artifactName": "API-Tester-Setup-${version}.${ext}",
       "target": ["nsis", "zip"]
     },
