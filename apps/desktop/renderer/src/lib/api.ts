@@ -14,11 +14,14 @@ export interface SendResult {
   error?: string
 }
 
-export async function sendHttp(request: RequestDraft): Promise<SendResult> {
+export async function sendHttp(
+  request: RequestDraft,
+  environmentVariables?: Record<string, string>
+): Promise<SendResult> {
   const bridge = (typeof window !== 'undefined' ? window.apiTester : undefined) as
     | Window['apiTester']
     | undefined
-  if (bridge) return bridge.sendHttp({ request })
+  if (bridge) return bridge.sendHttp({ request, environmentVariables })
   /* Fallback for browser preview / tests — never hit in Electron. */
   return {
     response: {

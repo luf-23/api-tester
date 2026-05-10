@@ -2,10 +2,16 @@ import type {
   Collection,
   Environment,
   FolderNode,
+  RequestDraft,
   RequestWithTests,
   RunResultItem,
 } from '@api-tester/shared'
 import { applyVariablesToRequest, mergeVariables } from './variables'
+
+export type PrepareRequestFn = (
+  req: RequestWithTests,
+  vars: Record<string, string>
+) => { ok: true; request: RequestDraft } | { ok: false; error: string }
 
 export interface ExecuteRequestFn {
   (req: RequestWithTests): Promise<{
@@ -23,6 +29,8 @@ export async function runCollection(args: {
   activeEnv: Environment | undefined
   execute: ExecuteRequestFn
   stopOnFailure: boolean
+  /** Default: merge variables only. Use to run pre-request scripts then substitute {{vars}}. */
+  prepareRequest?: PrepareRequestFn
 }): Promise<RunResultItem[]> {
   const vars = mergeVariables(
     args.globalVars?.variables ?? [],
@@ -37,10 +45,26 @@ export async function runCollection(args: {
         if (stop && args.stopOnFailure) return false
       } else {
         const req = child as RequestWithTests
-        const resolved = applyVariablesToRequest(req, vars) as RequestWithTests
         const started = Date.now()
+        const prep = args.prepareRequest
+          ? args.prepareRequest(req, vars)
+          : {
+              ok: true as const,
+              request: applyVariablesToRequest(req, vars),
+            }
         try {
-          const res = await args.execute(resolved)
+          if (!prep.ok) {
+            items.push({
+              requestId: req.id,
+              requestName: req.name,
+              ok: false,
+              durationMs: Date.now() - started,
+              error: prep.error,
+            })
+            if (args.stopOnFailure) return false
+            continue
+          }
+          const res = await args.execute(prep.request as RequestWithTests)
           const durationMs = res.durationMs ?? Date.now() - started
           if (res.error) {
             items.push({

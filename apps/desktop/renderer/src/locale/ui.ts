@@ -115,7 +115,8 @@ export const ui = {
     formatJson: 'Format JSON',
     formatJsonInvalid: 'JSON has syntax errors — fix highlighted issues before formatting.',
     noBody: 'This request does not have a body.',
-    scriptHint: 'JavaScript runs before the request is sent. Editing will be available in a future update.',
+    scriptHint:
+      '在主进程沙箱中同步执行（约 5s 超时）。可用 pm.environment / pm.variables 读写 {{变量}}；pm.request.setUrl、setMethod、headers.upsert/remove/get、body.raw。控制台输出见终端 [pre-request]。',
     settingsTitle: 'Settings',
     settingsSendIntro: 'These options apply when you click Send for this request.',
     settingsTimeout: 'Request timeout',

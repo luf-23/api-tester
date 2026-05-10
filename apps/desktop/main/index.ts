@@ -15,12 +15,8 @@ import {
 import type { Collection, Environment, RequestWithTests } from '@api-tester/shared'
 import { sendRequest } from '@api-tester/http-client'
 import { openDatabase, tryParseWorkspaceBundle, WorkspaceStore } from '@api-tester/storage'
-import {
-  applyVariablesToRequest,
-  importPostmanCollectionV21,
-  mergeVariables,
-  runCollection,
-} from '@api-tester/domain'
+import { importPostmanCollectionV21, runCollection } from '@api-tester/domain'
+import { resolveRequestForSend } from '@api-tester/domain/pre-request-script'
 import { MockServerController } from '@api-tester/mock-server'
 import { setupAutoUpdater } from './updater'
 
@@ -105,9 +101,22 @@ app.whenReady().then(() => {
     const parsed = sendHttpRequestSchema.safeParse(payload)
     if (!parsed.success) throw new Error('Invalid request payload')
     const { request } = parsed.data
-    const vars = parsed.data.environmentVariables ?? {}
-    const resolved = applyVariablesToRequest(request, vars)
-    const result = await sendRequest(resolved)
+    const vars = { ...(parsed.data.environmentVariables ?? {}) }
+    const prep = resolveRequestForSend(request, vars)
+    if (!prep.ok) {
+      return {
+        response: {
+          status: 0,
+          statusText: 'Pre-request Error',
+          headers: {},
+          bodyText: '',
+          durationMs: 0,
+          sizeBytes: 0,
+        },
+        error: prep.error,
+      }
+    }
+    const result = await sendRequest(prep.request)
     return result
   })
 
@@ -177,13 +186,9 @@ app.whenReady().then(() => {
         globalVars: globalEnv,
         activeEnv,
         stopOnFailure,
+        prepareRequest: (req, vars) => resolveRequestForSend(req, vars),
         execute: async (req: RequestWithTests) => {
-          const vars = mergeVariables(
-            globalEnv?.variables ?? [],
-            activeEnv?.variables ?? []
-          )
-          const resolved = applyVariablesToRequest(req, vars) as RequestWithTests
-          const out = await sendRequest(resolved)
+          const out = await sendRequest(req)
           if (out.error) {
             return {
               status: 0,

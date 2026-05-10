@@ -1178,6 +1178,16 @@ body.is-resizing-row .resize-handle--row::after {
   border-color: var(--accent-ring);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+
+.pre-script-editor__hint {
+  margin: 0 0 10px;
+  font-size: var(--fs-caption);
+  line-height: 1.45;
+}
+.pre-script-editor__textarea {
+  min-height: 220px;
+}
+
 .body-editor__empty {
   margin: 0;
   flex: none;

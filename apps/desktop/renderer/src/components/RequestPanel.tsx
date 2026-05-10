@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Collection, FolderNode, RequestWithTests } from '@api-tester/shared'
+import type { Collection, Environment, FolderNode, RequestWithTests, WorkspaceMeta } from '@api-tester/shared'
 import { defaultSendSettings } from '@api-tester/shared'
+import { mergeVariables } from '@api-tester/domain'
 import { ui } from '../locale/ui'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
@@ -31,6 +32,20 @@ const BODY_MODES = [
 
 function isRequestNode(n: FolderNode | RequestWithTests): n is RequestWithTests {
   return 'method' in n
+}
+
+async function loadMergedEnvironmentVariables(): Promise<Record<string, string>> {
+  const bridge = window.apiTester
+  if (!bridge?.environmentsList || !bridge?.workspaceGet) return {}
+  const [ws, envList] = await Promise.all([
+    bridge.workspaceGet() as Promise<WorkspaceMeta>,
+    bridge.environmentsList() as Promise<Environment[]>,
+  ])
+  const globalEnv = envList.find((e) => e.name.trim().toLowerCase() === 'global')
+  const active = ws.activeEnvironmentId
+    ? envList.find((e) => e.id === ws.activeEnvironmentId)
+    : undefined
+  return mergeVariables(globalEnv?.variables ?? [], active?.variables ?? [])
 }
 
 function breadcrumbForRequest(collections: Collection[], request: RequestWithTests): string[] {
@@ -98,7 +113,8 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   const onSend = async () => {
     setResponse(request.id, { loading: true })
     try {
-      const out = await sendHttp(request)
+      const envVars = await loadMergedEnvironmentVariables()
+      const out = await sendHttp(request, envVars)
       setResponse(request.id, {
         loading: false,
         response: { ...out.response },
@@ -211,7 +227,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           </>
         )}
         {active === 'body' && <BodyEditor request={request} />}
-        {active === 'pre' && <ScriptPlaceholder />}
+        {active === 'pre' && <PreRequestScriptPanel request={request} />}
         {active === 'settings' && <RequestSendSettingsPanel request={request} />}
       </div>
     </section>
@@ -373,11 +389,20 @@ function RequestSendSettingsPanel({ request }: { request: RequestWithTests }) {
   )
 }
 
-function ScriptPlaceholder() {
+function PreRequestScriptPanel({ request }: { request: RequestWithTests }) {
+  const update = useWorkspaceStore((s) => s.updateRequest)
   return (
-    <div className="dim">
-      <h4>{ui.request.scriptPre}</h4>
-      <p>{ui.request.scriptHint}</p>
+    <div className="pre-script-editor">
+      <h4 className="request-subpanel__title">{ui.request.scriptPre}</h4>
+      <p className="pre-script-editor__hint dim">{ui.request.scriptHint}</p>
+      <textarea
+        className="body-editor__textarea pre-script-editor__textarea"
+        value={request.preRequestScript ?? ''}
+        onChange={(e) => update(request.id, { preRequestScript: e.target.value })}
+        spellCheck={false}
+        placeholder={'// pm.environment.set("ts", Date.now().toString())'}
+        rows={16}
+      />
     </div>
   )
 }

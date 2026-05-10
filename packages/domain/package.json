@@ -5,7 +5,8 @@
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./pre-request-script": "./src/pre-request-script.ts"
   },
   "dependencies": {
     "@api-tester/shared": "workspace:*",
