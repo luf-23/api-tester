@@ -141,7 +141,8 @@ export const ui = {
   response: {
     noResponse: 'No response yet — click Send.',
     sending: 'Sending request…',
-    streaming: 'Streaming…',
+    /** Shown while the streaming HTTP path is active (default Send — includes normal responses until complete). */
+    receivingResponse: 'Receiving response…',
     okFallback: 'OK',
     sections: {
       body: 'Body',
@@ -160,10 +161,15 @@ export const ui = {
       'Image preview is unavailable for this response. Send again, or restart the app if you just updated.',
     previewTooLarge: (maxMb: number) =>
       `Image is larger than ${maxMb} MB — preview is disabled to save memory.`,
+    previewHtmlTooLarge:
+      'HTML body is too large for preview — use Raw. (Limit protects memory and UI responsiveness.)',
     imageBinaryHint: 'Binary image body — open Preview to render it; JSON/Raw text may look garbled.',
     /** JSON tab when Content-Type is image/* (body is not JSON). */
     imageNotJsonBody:
       'This response is image/binary data, not JSON. Use the Preview tab to view the image.',
+    /** JSON tab when Content-Type is text/html (body is not JSON). */
+    htmlNotJsonBody:
+      'This response is HTML, not JSON. Use the Preview tab to render it, or Raw for the source.',
     /** Raw tab when image body is truncated to keep the UI responsive. */
     rawImageTruncated: 'Showing only the start of the decoded body for performance — open Preview for the full image.',
     explorerTitle: 'Response Explorer',

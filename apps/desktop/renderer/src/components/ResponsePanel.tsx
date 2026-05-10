@@ -67,6 +67,30 @@ function responseImagePreview(r: HttpResponseView): { src: string; mime: string 
 const PREVIEW_MAX_MB = 15
 const PREVIEW_MAX_BYTES = PREVIEW_MAX_MB * 1024 * 1024
 
+/** Max HTML chars for iframe srcDoc — avoids huge documents freezing the renderer. */
+const HTML_PREVIEW_MAX_CHARS = 2 * 1024 * 1024
+
+function isHtmlContentType(ct: string): boolean {
+  const base = ct.split(';')[0].trim().toLowerCase()
+  return base === 'text/html' || base === 'application/xhtml+xml'
+}
+
+function isHtmlLikeResponse(r: HttpResponseView): boolean {
+  return isHtmlContentType(contentTypeFromHeaders(r.headers))
+}
+
+function responseHtmlPreviewSrcDoc(r: HttpResponseView): string | undefined {
+  if (!isHtmlLikeResponse(r)) return undefined
+  const text = r.bodyText
+  if (text.length > HTML_PREVIEW_MAX_CHARS) return undefined
+  return text
+}
+
+function responseHtmlTooLargeForPreview(r: HttpResponseView): boolean {
+  if (!isHtmlLikeResponse(r)) return false
+  return r.bodyText.length > HTML_PREVIEW_MAX_CHARS
+}
+
 /** True only when server claims image/* and body is too large to embed (not other bugs/missing fields). */
 function responseImageTooLargeForPreview(r: HttpResponseView): boolean {
   const ct = contentTypeFromHeaders(r.headers)
@@ -95,6 +119,15 @@ function isImageLikeResponse(r: HttpResponseView): boolean {
 /** Max chars rendered in Raw / JSON fallback for image bodies — avoids multi‑MB DOM and tokenizer stalls. */
 const IMAGE_BODY_DISPLAY_CHAR_CAP = 96 * 1024
 
+function ResponseReceivingIndicator() {
+  return (
+    <div className="response__receiving-stack">
+      <span className="muted">{ui.response.receivingResponse}</span>
+      <span className="response__spinner" aria-hidden />
+    </div>
+  )
+}
+
 export function ResponsePanel({ requestId }: Props) {
   const state = useTabsStore((s) => s.responses[requestId])
   const [section, setSection] = useState<Section>(SECTIONS[0])
@@ -110,10 +143,16 @@ export function ResponsePanel({ requestId }: Props) {
     if (switchedTab) {
       prevRequestId.current = requestId
       if (r && responseImagePreview(r)) setView(VIEW_TABS[2])
+      else if (r && responseHtmlPreviewSrcDoc(r) !== undefined) setView(VIEW_TABS[2])
       else setView(VIEW_TABS[0])
       return
     }
-    if (state?.receivedAt && r && responseImagePreview(r)) setView(VIEW_TABS[2])
+    if (
+      state?.receivedAt &&
+      r &&
+      (responseImagePreview(r) || responseHtmlPreviewSrcDoc(r) !== undefined)
+    )
+      setView(VIEW_TABS[2])
   }, [requestId, state?.response, state?.loading, state?.receivedAt])
   const sectionCounts = useMemo(() => {
     if (!response) return emptySectionCounts()
@@ -131,18 +170,23 @@ export function ResponsePanel({ requestId }: Props) {
     [response]
   )
 
+  const htmlLike = useMemo(
+    () => (response ? isHtmlLikeResponse(response) : false),
+    [response]
+  )
+
   const { formatted, json } = useMemo(() => {
     if (!response) {
       return { formatted: { pretty: '', ok: false as const }, json: undefined as unknown }
     }
-    if (imageLike) {
+    if (imageLike || htmlLike) {
       return { formatted: { pretty: '', ok: false as const }, json: undefined as unknown }
     }
     return {
       formatted: tryFormatJson(response.bodyText),
       json: safeParseJson(response.bodyText),
     }
-  }, [response, imageLike])
+  }, [response, imageLike, htmlLike])
 
   const rawDisplayText = useMemo(() => {
     if (!response) return ''
@@ -165,8 +209,8 @@ export function ResponsePanel({ requestId }: Props) {
   if (state?.loading && state?.streaming && !state?.response) {
     return (
       <section className="response">
-        <div className="response__head">
-          <span className="muted">{ui.response.streaming}</span>
+        <div className="response__head response__head--receiving-only">
+          <ResponseReceivingIndicator />
         </div>
       </section>
     )
@@ -198,10 +242,14 @@ export function ResponsePanel({ requestId }: Props) {
   const imgPreview = responseImagePreview(r)
   const imageTooLarge = responseImageTooLargeForPreview(r)
   const imagePreviewMissing = responseImagePreviewMissing(r)
+  const htmlTooLarge = responseHtmlTooLargeForPreview(r)
+  const htmlSrcDoc = responseHtmlPreviewSrcDoc(r)
 
   return (
     <section className="response">
-      <div className="response__head">
+      <div
+        className={`response__head${state?.streaming ? ' response__head--streaming-meta' : ''}`}
+      >
         {SECTIONS.map((s) => (
           <button
             key={s}
@@ -220,7 +268,7 @@ export function ResponsePanel({ requestId }: Props) {
             {formatStatusLine(r)}
           </span>
           {state?.streaming ? (
-            <span className="muted">{ui.response.streaming}</span>
+            <ResponseReceivingIndicator />
           ) : (
             <>
               <span>{formatDuration(r.durationMs)}</span>
@@ -261,12 +309,28 @@ export function ResponsePanel({ requestId }: Props) {
                 <div className="response__preview-empty dim">{ui.response.previewTooLarge(PREVIEW_MAX_MB)}</div>
               ) : imagePreviewMissing ? (
                 <div className="response__preview-empty dim">{ui.response.previewImageMissing}</div>
+              ) : htmlTooLarge ? (
+                <div className="response__preview-empty dim">{ui.response.previewHtmlTooLarge}</div>
+              ) : htmlSrcDoc !== undefined ? (
+                <div className="response__html-preview">
+                  <iframe
+                    className="response__html-preview-frame"
+                    title="HTML preview"
+                    sandbox=""
+                    referrerPolicy="no-referrer"
+                    srcDoc={htmlSrcDoc}
+                  />
+                </div>
               ) : (
                 <div className="response__preview-empty dim">{ui.response.previewNoVisual}</div>
               )
             ) : imageLike ? (
               <div className="response__preview-empty dim" style={{ padding: 12 }}>
                 {ui.response.imageNotJsonBody}
+              </div>
+            ) : htmlLike ? (
+              <div className="response__preview-empty dim" style={{ padding: 12 }}>
+                {ui.response.htmlNotJsonBody}
               </div>
             ) : (
               <JsonView text={formatted.pretty} />
