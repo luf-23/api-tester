@@ -1,8 +1,11 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import electronUpdater from 'electron-updater'
+import path from 'node:path'
 import { ipcChannels, updaterPushChannel, type UpdaterPushPayload } from '@api-tester/shared'
 
 const { autoUpdater } = electronUpdater
+
+type NsisAutoUpdater = typeof autoUpdater & { installDirectory?: string }
 
 export function setupAutoUpdater(
   getWindow: () => BrowserWindow | null,
@@ -45,6 +48,12 @@ export function setupAutoUpdater(
 
   autoUpdater.autoDownload = false
   autoUpdater.allowPrerelease = false
+
+  // NSIS: pass /D=<real install dir>. Otherwise our preInit writes InstallLocation=$EXEDIR; during
+  // auto-update EXEDIR is the temp folder for the downloaded Setup exe and the installer targets the wrong path.
+  if (process.platform === 'win32') {
+    ;(autoUpdater as NsisAutoUpdater).installDirectory = path.dirname(app.getPath('exe'))
+  }
 
   autoUpdater.on('checking-for-update', () => push({ type: 'checking' }))
   autoUpdater.on('update-not-available', () => push({ type: 'not-available' }))
@@ -105,7 +114,9 @@ export function setupAutoUpdater(
     } catch {
       /* still attempt install */
     }
-    setImmediate(() => autoUpdater.quitAndInstall(false, true))
+    setImmediate(() => {
+      setTimeout(() => autoUpdater.quitAndInstall(false, true), 450)
+    })
     return { ok: true as const }
   })
 
