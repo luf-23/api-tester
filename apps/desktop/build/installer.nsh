@@ -10,16 +10,28 @@
 ; "cannot close the app". End the whole process tree (${PRODUCT_FILENAME}.exe = packaged main binary).
 !include "FileFunc.nsh"
 
-; Replace electron-builder CHECK_APP_RUNNING (PowerShell Path.StartsWith($INSTDIR) / tasklist) — it can
-; false-positive on first install and show "$(appCannotBeClosed)"; Retry then succeeds. Same kill as customInit.
+; Replace electron-builder CHECK_APP_RUNNING — PowerShell Path.StartsWith($INSTDIR) / tasklist can
+; false-positive and show "$(appCannotBeClosed)". Uninstall-old-version retry loop uses the same string.
+; Use SysDir taskkill + APP_EXECUTABLE_FILENAME (actual exe on disk; PRODUCT_FILENAME can differ).
+; nsExec::Exec runs hidden — ExecWait on taskkill.exe flashes a CMD window each time.
+!macro apitester_kill_app_processes
+  StrCpy $R8 0
+  apitester_kill_retry:
+    nsExec::Exec `"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}" /T`
+    Pop $R0
+    Sleep 800
+    IntOp $R8 $R8 + 1
+    IntCmp $R8 4 apitester_kill_done apitester_kill_retry apitester_kill_retry
+  apitester_kill_done:
+  Sleep 700
+!macroend
+
 !macro customCheckAppRunning
-  ExecWait 'taskkill /F /IM "${PRODUCT_FILENAME}.exe" /T' $R0
-  Sleep 1500
+  !insertmacro apitester_kill_app_processes
 !macroend
 
 !macro customInit
-  ExecWait 'taskkill /F /IM "${PRODUCT_FILENAME}.exe" /T' $R0
-  Sleep 1500
+  !insertmacro apitester_kill_app_processes
 
   ; Runs after initMultiUser — $INSTDIR is default $Programs\${APP_FILENAME}, preInit EXEDIR, or /D from upgrade.
   ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
@@ -107,19 +119,27 @@
   preInit_done:
 !macroend
 
-; Shortcut lives beside app\ and data\ — never under %Desktop% / Start Menu (typically on C:).
+; Shortcut beside app\ + data\ — same CreateShortCut style as electron-builder (paths with spaces).
 !macro customInstall
   ${GetParent} $R0 "$INSTDIR"
   ${GetFileName} $R1 "$R0"
-  StrCmp $R1 "API-Tester" 0 apitester_skip_local_shortcut
-  CreateShortcut "$INSTDIR\..\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+  StrCmp $R1 "API-Tester" apitester_do_local_shortcut
+  StrCmp $R1 "api-tester" apitester_do_local_shortcut
+  StrCmp $R1 "Api-Tester" apitester_do_local_shortcut
+  Goto apitester_skip_local_shortcut
+  apitester_do_local_shortcut:
+  CreateShortcut "$INSTDIR\..\${SHORTCUT_NAME}.lnk" "$appExe" "" "$appExe" 0 "" "" "${APP_DESCRIPTION}"
   apitester_skip_local_shortcut:
 !macroend
 
 !macro customUnInstall
   ${GetParent} $R0 "$INSTDIR"
   ${GetFileName} $R1 "$R0"
-  StrCmp $R1 "API-Tester" 0 apitester_skip_un_shortcut
+  StrCmp $R1 "API-Tester" apitester_do_un_shortcut
+  StrCmp $R1 "api-tester" apitester_do_un_shortcut
+  StrCmp $R1 "Api-Tester" apitester_do_un_shortcut
+  Goto apitester_skip_un_shortcut
+  apitester_do_un_shortcut:
   Delete "$INSTDIR\..\${SHORTCUT_NAME}.lnk"
   apitester_skip_un_shortcut:
 !macroend
