@@ -406,7 +406,6 @@ body.is-resizing-row .resize-handle--row::after {
   color: var(--text-primary);
   font-weight: 500;
 }
-.tree-row.is-active .method { color: inherit; }
 .tree-row.is-active::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0;
   width: 2px;
@@ -442,7 +441,6 @@ body.is-resizing-row .resize-handle--row::after {
 .tree-row.is-active .tree-row__count {
   background: transparent; border: 0; color: var(--text-secondary);
 }
-.tree-row__star { color: var(--accent); }
 .tree-row__rename {
   flex: 1; min-width: 0; height: 26px;
   background: var(--bg-app);
@@ -635,6 +633,10 @@ body.is-resizing-row .resize-handle--row::after {
   justify-content: flex-end;
   gap: 8px;
 }
+.confirm-dialog__actions--triple {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .confirm-dialog__btn {
   min-height: 30px;
   padding: 0 14px;
@@ -760,6 +762,24 @@ body.is-resizing-row .resize-handle--row::after {
   height: 2px;
   background: var(--accent);
 }
+/* Unsaved changes — small accent dot (lighter than a dark filled blob) */
+.tab__dirty {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 0;
+  background: color-mix(in srgb, var(--accent) 72%, var(--bg-shell));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent),
+    0 0 10px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.tab.is-active .tab__dirty {
+  background: var(--accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-strong) 35%, transparent),
+    0 0 12px color-mix(in srgb, var(--accent) 38%, transparent);
+}
 .tab__label {
   flex: 1;
   min-width: 0;
@@ -802,6 +822,80 @@ body.is-resizing-row .resize-handle--row::after {
 .tab--add:hover {
   color: var(--text-primary);
   background: color-mix(in srgb, var(--bg-hover) 65%, transparent);
+}
+
+.tabs-toolbar {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-shell) 88%, var(--border-subtle));
+}
+.tabs-toolbar__more {
+  width: 38px;
+  min-width: 38px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.08s ease, background 0.08s ease;
+}
+.tabs-toolbar__more:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-hover) 65%, transparent);
+}
+.tabs-toolbar__more.is-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.tabs-toolbar__more:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--accent-ring);
+}
+.tabs-toolbar__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 2px);
+  z-index: 220;
+  min-width: 220px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--bg-panel, var(--bg-shell));
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: ctxIn 0.1s ease-out;
+}
+.tabs-toolbar__menu-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 3px;
+  min-height: 28px;
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tabs-toolbar__menu-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.tabs-toolbar__menu-item:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.tabs-toolbar__menu-item:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--accent-ring);
 }
 
 .method--tab {

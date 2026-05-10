@@ -14,6 +14,21 @@ export const ui = {
     retry: '重试',
     dismiss: '关闭',
   },
+  unsaved: {
+    tabTitle: '是否关闭标签页？',
+    tabBody: (name: string) =>
+      `「${name}」有未保存的更改。可选择保存后关闭、放弃更改后关闭，或取消留在当前标签。`,
+    quitTitle: '是否退出应用？',
+    quitBody:
+      '工作区有未保存的更改。可选择保存并退出、放弃更改并退出，或取消留在应用中。（打开的标签页会在保存或退出后记住，下次启动恢复。）',
+    save: '保存',
+    discard: '放弃更改',
+    cancel: '取消',
+    saveFailed: (msg: string) => `保存失败：${msg}`,
+    closeAllTitle: '是否关闭全部标签页？',
+    closeAllBody:
+      '部分标签有未保存的更改。保存将写入整个工作区；放弃将还原到上次保存的状态并关闭所有标签。',
+  },
   app: {
     loadingWorkspace: '正在加载工作区…',
     resizeCollections: '拖动调整集合列表宽度',
@@ -70,6 +85,10 @@ export const ui = {
   topBar: {
     tablist: '已打开的请求',
     closeTab: (name: string) => `关闭 ${name}`,
+    tabOverflowTitle: '标签页菜单',
+    tabUnsavedHint: '有未保存的更改',
+    closeAllTabs: '关闭全部标签页',
+    closeSavedTabs: '关闭已保存的标签页',
     newRequest: '新建请求',
     appearance: '外观',
     appearancePanel: '外观设置',

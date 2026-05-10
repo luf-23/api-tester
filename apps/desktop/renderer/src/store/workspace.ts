@@ -16,6 +16,11 @@ function isRequest(node: Node): node is RequestWithTests {
   return 'method' in node
 }
 
+function collectRequestIdsInSubtree(node: FolderNode | RequestWithTests): string[] {
+  if (isRequest(node)) return [node.id]
+  return node.children.flatMap((ch) => collectRequestIdsInSubtree(ch))
+}
+
 function findRequest(node: FolderNode, id: string): RequestWithTests | undefined {
   for (const child of node.children) {
     if (isRequest(child)) {
@@ -77,6 +82,19 @@ function removeFromTree(node: FolderNode, id: string): FolderNode {
     children: node.children
       .filter((c) => c.id !== id)
       .map((c) => (isRequest(c) ? c : removeFromTree(c, id))),
+  }
+}
+
+function replaceRequestInTree(node: FolderNode, id: string, req: RequestWithTests): FolderNode {
+  return {
+    ...node,
+    children: node.children.map((child) =>
+      isRequest(child)
+        ? child.id === id
+          ? structuredClone(req)
+          : child
+        : replaceRequestInTree(child, id, req)
+    ),
   }
 }
 
@@ -204,7 +222,15 @@ function uniqueCollectionName(collections: Collection[], base: string): string {
 
 interface WorkspaceState {
   collections: Collection[]
+  /** Last JSON written by Save / initial load / disk refresh — used for discard & quit-without-save. */
+  lastPersistedCollectionsJson: string | null
+  /** Request tabs with unsaved edits (relative to last persisted snapshot). */
+  dirtyRequestIds: Record<string, true>
   expanded: Record<string, boolean>
+  syncPersistedSnapshot: (collectionsJson: string) => void
+  revertTabDiscard: (requestId: string) => void
+  revertWorkspaceToLastPersisted: () => void
+  hasUnsavedChanges: () => boolean
   toggleFolder: (id: string) => void
   expandFolder: (id: string, value?: boolean) => void
   getRequest: (id: string) => RequestWithTests | undefined
@@ -226,6 +252,66 @@ interface WorkspaceState {
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   collections: [],
+  lastPersistedCollectionsJson: null,
+  dirtyRequestIds: {},
+  syncPersistedSnapshot: (collectionsJson) =>
+    set({
+      lastPersistedCollectionsJson: collectionsJson,
+      dirtyRequestIds: {},
+    }),
+  revertTabDiscard: (requestId) => {
+    const snap = get().lastPersistedCollectionsJson
+    if (!snap) {
+      get().deleteNode(requestId)
+      return
+    }
+    let cols: Collection[]
+    try {
+      cols = JSON.parse(snap) as Collection[]
+    } catch {
+      get().deleteNode(requestId)
+      return
+    }
+    let restored: RequestWithTests | undefined
+    for (const c of cols) {
+      const r = findRequest(c.root, requestId)
+      if (r) {
+        restored = structuredClone(r)
+        break
+      }
+    }
+    set((s) => {
+      if (!restored) {
+        return {
+          collections: s.collections.map((c) => ({
+            ...c,
+            root: removeFromTree(c.root, requestId),
+          })),
+          dirtyRequestIds: Object.fromEntries(
+            Object.entries(s.dirtyRequestIds).filter(([k]) => k !== requestId)
+          ) as Record<string, true>,
+        }
+      }
+      const collections = s.collections.map((c) => ({
+        ...c,
+        root: replaceRequestInTree(c.root, requestId, restored!),
+      }))
+      const dirtyRequestIds = { ...s.dirtyRequestIds }
+      delete dirtyRequestIds[requestId]
+      return { collections, dirtyRequestIds }
+    })
+  },
+  revertWorkspaceToLastPersisted: () => {
+    const snap = get().lastPersistedCollectionsJson
+    if (!snap) return
+    try {
+      const cols = JSON.parse(snap) as Collection[]
+      set({ collections: cols, dirtyRequestIds: {} })
+    } catch {
+      /* keep current workspace */
+    }
+  },
+  hasUnsavedChanges: () => Object.keys(get().dirtyRequestIds).length > 0,
   expanded: {},
   toggleFolder: (id) =>
     set((s) => ({ expanded: { ...s.expanded, [id]: !s.expanded[id] } })),
@@ -243,6 +329,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   updateRequest: (id, patch) =>
     set((s) => ({
       collections: s.collections.map((c) => ({ ...c, root: patchRequest(c.root, id, patch) })),
+      dirtyRequestIds: { ...s.dirtyRequestIds, [id]: true },
     })),
   setKv: (id, section, next) =>
     set((s) => ({
@@ -250,6 +337,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         ...c,
         root: patchRequest(c.root, id, { [section]: next } as Partial<RequestWithTests>),
       })),
+      dirtyRequestIds: { ...s.dirtyRequestIds, [id]: true },
     })),
   renameNode: (id, name) => {
     const trimmed = name.trim()
@@ -263,36 +351,61 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       )
       if (dup) return false
     }
+    const touchRequest = !colForRoot && state.collections.some((c) => !!findRequest(c.root, id))
     set((s) => ({
       collections: s.collections.map((c) =>
         c.root.id === id
           ? { ...c, name: trimmed, root: renameInTree(c.root, id, trimmed) }
           : { ...c, root: renameInTree(c.root, id, trimmed) }
       ),
+      dirtyRequestIds: touchRequest ? { ...s.dirtyRequestIds, [id]: true } : s.dirtyRequestIds,
     }))
     return true
   },
   deleteNode: (id) =>
     set((s) => {
+      const removedIds = new Set<string>()
+      const collectRemoved = (node: FolderNode | RequestWithTests) => {
+        if (isRequest(node)) removedIds.add(node.id)
+        else for (const ch of node.children) collectRemoved(ch)
+      }
+      for (const c of s.collections) {
+        const hit = findNodeAndParent(c.root, id)
+        if (hit) {
+          collectRemoved(hit.node)
+          break
+        }
+      }
+      const dirtyRequestIds = { ...s.dirtyRequestIds }
+      for (const rid of removedIds) delete dirtyRequestIds[rid]
+
       const collections = s.collections.filter((c) => c.id !== id && c.root.id !== id)
-      if (collections.length !== s.collections.length) return { collections }
+      if (collections.length !== s.collections.length) return { collections, dirtyRequestIds }
       return {
         collections: s.collections.map((c) => ({ ...c, root: removeFromTree(c.root, id) })),
+        dirtyRequestIds,
       }
     }),
   duplicateRequest: (id) => {
     let newId: string | undefined
     set((s) => {
+      let assigned: string | undefined
       const collections = s.collections.map((c) => {
         const found = findNodeAndParent(c.root, id)
         if (!found || !found.parent || !isRequest(found.node)) return c
         const dup = cloneRequest(found.node)
-        newId = dup.id
+        assigned = dup.id
         const parent = found.parent
         const index = parent.children.findIndex((x) => x.id === id) + 1
         return { ...c, root: insertInto(c.root, parent.id, dup, index) }
       })
-      return { collections }
+      newId = assigned
+      return {
+        collections,
+        dirtyRequestIds: assigned
+          ? { ...s.dirtyRequestIds, [assigned]: true }
+          : s.dirtyRequestIds,
+      }
     })
     return newId
   },
@@ -304,6 +417,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         root: insertInto(c.root, parentId, node),
       })),
       expanded: { ...s.expanded, [parentId]: true },
+      dirtyRequestIds: { ...s.dirtyRequestIds, [node.id]: true },
     }))
     return node.id
   },
@@ -336,6 +450,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   moveNode: (sourceId, targetId, position) =>
     set((s) => {
       if (sourceId === targetId) return s
+
+      let srcIds: string[] = []
+      for (const c of s.collections) {
+        const src = findNodeAndParent(c.root, sourceId)
+        if (src) {
+          srcIds = isRequest(src.node)
+            ? [src.node.id]
+            : collectRequestIdsInSubtree(src.node)
+          break
+        }
+      }
+
       const collections = s.collections.map((c) => {
         const src = findNodeAndParent(c.root, sourceId)
         const tgt = findNodeAndParent(c.root, targetId)
@@ -359,13 +485,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         }
         return { ...c, root }
       })
-      return { collections }
+
+      const dirtyRequestIds = { ...s.dirtyRequestIds }
+      for (const rid of srcIds) dirtyRequestIds[rid] = true
+      return { collections, dirtyRequestIds }
     }),
   importPostmanCollection: (collection) =>
-    set((s) => ({
-      collections: [...s.collections, collection],
-      expanded: { ...s.expanded, [collection.root.id]: true },
-    })),
+    set((s) => {
+      const touched = collectRequestIdsInSubtree(collection.root)
+      const dirtyRequestIds = { ...s.dirtyRequestIds }
+      for (const rid of touched) dirtyRequestIds[rid] = true
+      return {
+        collections: [...s.collections, collection],
+        expanded: { ...s.expanded, [collection.root.id]: true },
+        dirtyRequestIds,
+      }
+    }),
 }))
 
 export function emptyKv(): KeyValue {

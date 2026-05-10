@@ -74,7 +74,9 @@ export class WorkspaceStore {
   }
 
   saveWorkspaceMeta(
-    partial: Partial<Pick<WorkspaceMeta, 'name' | 'activeEnvironmentId' | 'mockPort'>>
+    partial: Partial<
+      Pick<WorkspaceMeta, 'name' | 'activeEnvironmentId' | 'mockPort' | 'editorTabState'>
+    >
   ): void {
     const meta = { ...this.readMeta(), ...partial }
     this.writeMetaRow(meta)

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
+  appCloseRequestedChannel,
   httpStreamPushChannel,
   ipcChannels,
   updaterPushChannel,
@@ -57,6 +58,16 @@ const api = {
   updaterCheck: () => ipcRenderer.invoke(ipcChannels.updaterCheck),
   updaterDownload: () => ipcRenderer.invoke(ipcChannels.updaterDownload),
   updaterQuitAndInstall: () => ipcRenderer.invoke(ipcChannels.updaterQuitAndInstall),
+  appFinishClose: () => ipcRenderer.invoke(ipcChannels.appFinishClose),
+  onCloseRequested: (callback: () => void) => {
+    const listener = (): void => {
+      callback()
+    }
+    ipcRenderer.on(appCloseRequestedChannel, listener)
+    return () => {
+      ipcRenderer.removeListener(appCloseRequestedChannel, listener)
+    }
+  },
   updaterSubscribe: (callback: (payload: UpdaterPushPayload) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: UpdaterPushPayload) =>
       callback(payload)

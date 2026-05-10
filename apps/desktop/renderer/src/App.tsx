@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Collection } from '@api-tester/shared'
+import type { WorkspaceMeta } from '@api-tester/shared'
 import { CollectionsPanel } from './components/CollectionsPanel'
 import { TopBar } from './components/TopBar'
 import { RequestPanel } from './components/RequestPanel'
 import { ResponsePanel } from './components/ResponsePanel'
 import { StatusBar } from './components/StatusBar'
+import { UnsavedPrompt } from './components/UnsavedPrompt'
 import { UpdateBanner } from './components/UpdateBanner'
+import {
+  persistEditorTabState,
+  pruneTabsToExistingRequests,
+  saveCollectionsToDisk,
+} from './lib/persistWorkspace'
 import { useTabsStore } from './store/tabs'
 import { useWorkspaceStore } from './store/workspace'
 import { useThemeStore } from './store/theme'
@@ -37,6 +43,7 @@ export default function App() {
     ui: false,
     persist: false,
   })
+  const [quitPromptOpen, setQuitPromptOpen] = useState(false)
 
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_SIDEBAR) : null
@@ -67,13 +74,27 @@ export default function App() {
       return
     }
     let cancelled = false
-    void Promise.all([bridge.collectionsGetAll(), bridge.themeGet()])
-      .then(([cols, themeId]) => {
+    void Promise.all([bridge.collectionsGetAll(), bridge.themeGet(), bridge.workspaceGet()])
+      .then(([cols, themeId, meta]) => {
         if (cancelled) return
         if (typeof themeId === 'string' && themeId.trim()) {
           useThemeStore.getState().setTheme(themeId.trim())
         }
         useWorkspaceStore.setState({ collections: cols })
+        useWorkspaceStore.getState().syncPersistedSnapshot(JSON.stringify(cols))
+
+        const m = meta as WorkspaceMeta
+        const ts = m.editorTabState
+        if (ts?.openRequestIds?.length) {
+          const getRequest = useWorkspaceStore.getState().getRequest
+          const openRequestIds = ts.openRequestIds.filter((id) => getRequest(id))
+          const activeRequestId =
+            ts.activeRequestId && openRequestIds.includes(ts.activeRequestId)
+              ? ts.activeRequestId
+              : openRequestIds[openRequestIds.length - 1] ?? null
+          useTabsStore.setState({ openIds: openRequestIds, activeId: activeRequestId })
+        }
+
         setBoot({ ui: true, persist: true })
       })
       .catch((err) => {
@@ -86,21 +107,32 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    const bridge = window.apiTester
+    if (!bridge?.onCloseRequested || !bridge?.appFinishClose) return
+
+    return bridge.onCloseRequested(() => {
+      if (!boot.persist || !useWorkspaceStore.getState().hasUnsavedChanges()) {
+        void persistEditorTabState().finally(() => void bridge.appFinishClose!())
+        return
+      }
+      setQuitPromptOpen(true)
+    })
+  }, [boot.persist])
+
+  useEffect(() => {
     if (!boot.ui || !boot.persist) return
     const bridge = window.apiTester
-    if (!bridge?.collectionsSaveAll) return
+    if (!bridge?.workspaceSaveMeta) return
 
     let timeout: ReturnType<typeof setTimeout>
-    const persist = (cols: Collection[]) => {
-      clearTimeout(timeout)
-      timeout = setTimeout(() => {
-        void bridge.collectionsSaveAll(cols)
-      }, 450)
+    const flush = () => {
+      void persistEditorTabState()
     }
 
-    const unsub = useWorkspaceStore.subscribe((state, prev) => {
-      if (state.collections === prev.collections) return
-      persist(state.collections)
+    const unsub = useTabsStore.subscribe((state, prev) => {
+      if (state.openIds === prev.openIds && state.activeId === prev.activeId) return
+      clearTimeout(timeout)
+      timeout = setTimeout(flush, 400)
     })
 
     return () => {
@@ -230,6 +262,28 @@ export default function App() {
         </main>
       </div>
       <StatusBar />
+
+      <UnsavedPrompt
+        open={quitPromptOpen}
+        title={ui.unsaved.quitTitle}
+        body={ui.unsaved.quitBody}
+        onCancel={() => setQuitPromptOpen(false)}
+        onSave={async () => {
+          const r = await saveCollectionsToDisk()
+          if (!r.ok) {
+            window.alert(ui.unsaved.saveFailed(r.message))
+            throw new Error('save-failed')
+          }
+          await persistEditorTabState()
+          await window.apiTester.appFinishClose!()
+        }}
+        onDiscard={async () => {
+          useWorkspaceStore.getState().revertWorkspaceToLastPersisted()
+          pruneTabsToExistingRequests()
+          await persistEditorTabState()
+          await window.apiTester.appFinishClose!()
+        }}
+      />
     </div>
   )
 }

@@ -8,13 +8,14 @@ if (!app.isPackaged) {
   app.commandLine.appendSwitch('remote-allow-origins', '*')
 }
 import {
+  appCloseRequestedChannel,
   httpStreamPushChannel,
   ipcChannels,
   mockStartSchema,
   sendHttpRequestSchema,
   sendHttpStreamRequestSchema,
 } from '@api-tester/shared'
-import type { Collection, Environment, RequestWithTests } from '@api-tester/shared'
+import type { Collection, Environment, RequestWithTests, WorkspaceMeta } from '@api-tester/shared'
 import { sendRequest, sendRequestStream } from '@api-tester/http-client'
 import { openDatabase, tryParseWorkspaceBundle, WorkspaceStore } from '@api-tester/storage'
 import { importPostmanCollectionV21, runCollection } from '@api-tester/domain'
@@ -55,6 +56,8 @@ app.setPath('userData', workspaceDataRoot)
 fs.mkdirSync(workspaceDataRoot, { recursive: true })
 
 let mainWindow: BrowserWindow | null = null
+/** When false, the renderer handles close (unsaved prompt); renderer invokes `appFinishClose` to allow quit. */
+let allowMainWindowClose = false
 let store: WorkspaceStore | null = null
 const mockCtl = new MockServerController()
 
@@ -104,6 +107,17 @@ function createWindow(): void {
   }
 
   mainWindow.setMenu(null)
+
+  allowMainWindowClose = false
+  mainWindow.on('close', (e) => {
+    if (allowMainWindowClose) return
+    e.preventDefault()
+    mainWindow?.webContents.send(appCloseRequestedChannel)
+  })
+  mainWindow.on('closed', () => {
+    allowMainWindowClose = false
+    mainWindow = null
+  })
 }
 
 app.whenReady().then(() => {
@@ -179,8 +193,20 @@ app.whenReady().then(() => {
 
   ipcMain.handle(ipcChannels.workspaceGet, async () => store!.getWorkspaceMeta())
   ipcMain.handle(ipcChannels.workspaceSaveMeta, async (_e, meta: unknown) => {
-    store!.saveWorkspaceMeta(meta as Parameters<WorkspaceStore['saveWorkspaceMeta']>[0])
+    store!.saveWorkspaceMeta(
+      meta as Partial<
+        Pick<WorkspaceMeta, 'name' | 'activeEnvironmentId' | 'mockPort' | 'editorTabState'>
+      >
+    )
     return { ok: true }
+  })
+
+  ipcMain.handle(ipcChannels.appFinishClose, async () => {
+    const win = mainWindow
+    if (!win || win.isDestroyed()) return { ok: false as const }
+    allowMainWindowClose = true
+    win.close()
+    return { ok: true as const }
   })
 
   ipcMain.handle(ipcChannels.themeGet, async () => store!.getThemeId() ?? null)

@@ -33,7 +33,6 @@ import {
   IconPlus,
   IconRunner,
   IconSearch,
-  IconStar,
   IconTrash,
 } from './icons'
 
@@ -176,6 +175,7 @@ export function CollectionsPanel() {
             if (bridge.collectionsGetAll) {
               const refreshed = await bridge.collectionsGetAll()
               useWorkspaceStore.setState({ collections: refreshed })
+              useWorkspaceStore.getState().syncPersistedSnapshot(JSON.stringify(refreshed))
             }
             showToast(ui.collections.toastImported)
           } else {
@@ -192,6 +192,7 @@ export function CollectionsPanel() {
           if (bridge.collectionsGetAll) {
             const refreshed = await bridge.collectionsGetAll()
             useWorkspaceStore.setState({ collections: refreshed })
+            useWorkspaceStore.getState().syncPersistedSnapshot(JSON.stringify(refreshed))
           }
           const renamed =
             result.renamedCollections.length + result.renamedEnvironments.length
@@ -333,12 +334,11 @@ export function CollectionsPanel() {
             <small>{ui.collections.noMatchesHint}</small>
           </div>
         )}
-        {filteredCollections.map((col, idx) => (
+        {filteredCollections.map((col) => (
           <CollectionTree
             key={col.id}
             collection={col}
             search={search}
-            rootStar={idx === 0}
             editingId={editingId}
             setEditingId={setEditingId}
             showToast={showToast}
@@ -398,7 +398,6 @@ export function CollectionsPanel() {
 interface CollectionTreeProps {
   collection: Collection
   search: string
-  rootStar?: boolean
   editingId: string | null
   setEditingId: (id: string | null) => void
   showToast: (msg: string, tone?: 'ok' | 'err') => void
@@ -413,7 +412,6 @@ interface CollectionTreeProps {
 function CollectionTree({
   collection,
   search,
-  rootStar,
   editingId,
   setEditingId,
   showToast,
@@ -427,7 +425,6 @@ function CollectionTree({
       node={collection.root}
       depth={1}
       search={search}
-      rootStar={rootStar}
       isCollectionRoot
       editingId={editingId}
       setEditingId={setEditingId}
@@ -444,7 +441,6 @@ interface FolderRowProps {
   node: FolderNode
   depth: number
   search: string
-  rootStar?: boolean
   isCollectionRoot?: boolean
   editingId: string | null
   setEditingId: (id: string | null) => void
@@ -461,7 +457,6 @@ function FolderRow({
   node,
   depth,
   search,
-  rootStar,
   isCollectionRoot,
   editingId,
   setEditingId,
@@ -573,7 +568,6 @@ function FolderRow({
         <span className="tree-row__count">
           {total === 1 ? ui.collections.requestsCountOne : ui.collections.requestsCountMany(total)}
         </span>
-        {rootStar && <IconStar className="tree-row__star" width={14} height={14} />}
         <div className="tree-row__actions" onClick={(e) => e.stopPropagation()}>
           <button
             className="row-icon"

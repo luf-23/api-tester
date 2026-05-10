@@ -117,7 +117,12 @@ export const ipcChannels = {
   updaterCheck: 'updater:check',
   updaterDownload: 'updater:download',
   updaterQuitAndInstall: 'updater:quitAndInstall',
+  /** Renderer invokes after user confirms window close (save/discard/no dirty). */
+  appFinishClose: 'app:finishClose',
 } as const
+
+/** Main → renderer: user clicked window close; renderer may prompt for unsaved work. */
+export const appCloseRequestedChannel = 'app:closeRequested' as const
 
 /** Main → renderer (preload listens on this channel). */
 export const updaterPushChannel = 'updater:event' as const

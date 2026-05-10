@@ -11,6 +11,7 @@ import type {
 import { defaultSendSettings } from '@api-tester/shared'
 import { mergeVariables } from '@api-tester/domain'
 import { ui } from '../locale/ui'
+import { saveCollectionsToDisk } from '../lib/persistWorkspace'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 import { sendHttp } from '../lib/api'
@@ -92,21 +93,20 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   )
 
   const onSaveNow = useCallback(async () => {
-    const bridge = window.apiTester
-    if (!bridge?.collectionsSaveAll) {
-      setSaveHint(ui.request.saveNoBridge)
+    const r = await saveCollectionsToDisk()
+    if (!r.ok) {
+      if (r.message === 'no-bridge') {
+        setSaveHint(ui.request.saveNoBridge)
+        window.setTimeout(() => setSaveHint(null), 3200)
+        return
+      }
+      setSaveHint(ui.request.saveFail)
       window.setTimeout(() => setSaveHint(null), 3200)
       return
     }
-    try {
-      await bridge.collectionsSaveAll(collections)
-      setSaveHint(ui.request.saveDone)
-      window.setTimeout(() => setSaveHint(null), 2200)
-    } catch {
-      setSaveHint(ui.request.saveFail)
-      window.setTimeout(() => setSaveHint(null), 3200)
-    }
-  }, [collections])
+    setSaveHint(ui.request.saveDone)
+    window.setTimeout(() => setSaveHint(null), 2200)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

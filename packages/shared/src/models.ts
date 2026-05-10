@@ -114,11 +114,18 @@ export interface Environment {
   variables: KeyValue[]
 }
 
+/** Last-open request tabs — restored on next launch (desktop). */
+export interface EditorTabState {
+  openRequestIds: string[]
+  activeRequestId: string | null
+}
+
 export interface WorkspaceMeta {
   id: string
   name: string
   activeEnvironmentId?: string
   mockPort?: number
+  editorTabState?: EditorTabState
 }
 
 export interface MockRoute {

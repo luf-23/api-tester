@@ -66,6 +66,8 @@ declare global {
       updaterDownload: () => Promise<{ ok: true } | { ok: false; reason?: string; message?: string }>
       updaterQuitAndInstall: () => Promise<{ ok: true } | { ok: false; reason?: string }>
       updaterSubscribe: (callback: (payload: UpdaterPushPayload) => void) => () => void
+      appFinishClose?: () => Promise<{ ok: boolean }>
+      onCloseRequested?: (callback: () => void) => () => void
     }
   }
 }

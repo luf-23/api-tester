@@ -93,11 +93,6 @@ export const IconFolder = (p: IconProps) => (
     <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
   </svg>
 )
-export const IconStar = (p: IconProps) => (
-  <svg {...base(p)} fill="currentColor" stroke="none">
-    <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6L12 17l-5.4 2.7 1-6L3.2 9.4l6.1-.9z" />
-  </svg>
-)
 export const IconClose = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M6 6l12 12M18 6 6 18" />
