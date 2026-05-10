@@ -4,14 +4,22 @@
 
 ; Layout: $Programs\API-Tester\app = application (installer only touches this tree).
 ; User data lives beside it in $Programs\API-Tester\data (created at runtime, not removed by upgrade).
+; No Desktop / Start Menu shortcuts (package.json nsis). Optional .lnk only under API-Tester\ (see customInstall).
 
 ; After quitAndInstall, Electron may still leave GPU/utility processes holding the exe — NSIS then shows
 ; "cannot close the app". End the whole process tree (${PRODUCT_FILENAME}.exe = packaged main binary).
 !include "FileFunc.nsh"
 
+; Replace electron-builder CHECK_APP_RUNNING (PowerShell Path.StartsWith($INSTDIR) / tasklist) — it can
+; false-positive on first install and show "$(appCannotBeClosed)"; Retry then succeeds. Same kill as customInit.
+!macro customCheckAppRunning
+  ExecWait 'taskkill /F /IM "${PRODUCT_FILENAME}.exe" /T' $R0
+  Sleep 1500
+!macroend
+
 !macro customInit
   ExecWait 'taskkill /F /IM "${PRODUCT_FILENAME}.exe" /T' $R0
-  Sleep 500
+  Sleep 1500
 
   ; Runs after initMultiUser — $INSTDIR is default $Programs\${APP_FILENAME}, preInit EXEDIR, or /D from upgrade.
   ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
@@ -97,4 +105,21 @@
   SetRegView 32
   WriteRegStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation $R9
   preInit_done:
+!macroend
+
+; Shortcut lives beside app\ and data\ — never under %Desktop% / Start Menu (typically on C:).
+!macro customInstall
+  ${GetParent} $R0 "$INSTDIR"
+  ${GetFileName} $R1 "$R0"
+  StrCmp $R1 "API-Tester" 0 apitester_skip_local_shortcut
+  CreateShortcut "$INSTDIR\..\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+  apitester_skip_local_shortcut:
+!macroend
+
+!macro customUnInstall
+  ${GetParent} $R0 "$INSTDIR"
+  ${GetFileName} $R1 "$R0"
+  StrCmp $R1 "API-Tester" 0 apitester_skip_un_shortcut
+  Delete "$INSTDIR\..\${SHORTCUT_NAME}.lnk"
+  apitester_skip_un_shortcut:
 !macroend
