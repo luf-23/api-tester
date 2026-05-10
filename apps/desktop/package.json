@@ -62,13 +62,8 @@
       "package.json"
     ],
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "artifactName": "API-Tester-Setup-${version}.${ext}"
-        },
-        "zip"
-      ]
+      "artifactName": "API-Tester-Setup-${version}.${ext}",
+      "target": ["nsis", "zip"]
     },
     "mac": {
       "target": [
