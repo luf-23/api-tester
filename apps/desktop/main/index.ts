@@ -24,6 +24,11 @@ import { setupAutoUpdater } from './updater'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+/** Portable / NSIS layout: `<parent>/API-Tester/app/<exe>` + `<parent>/API-Tester/data` (updates only touch `app/`). */
+const LAYOUT_ROOT_DIR = 'API-Tester'
+const LAYOUT_APP_DIR = 'app'
+const LAYOUT_DATA_DIR = 'data'
+
 /** Workspace root: SQLite + Electron Chromium profile (otherwise Electron creates %APPDATA%\<name>). */
 function resolveWorkspaceDataRoot(): string {
   const override = process.env.API_TESTER_DATA_DIR?.trim()
@@ -31,7 +36,16 @@ function resolveWorkspaceDataRoot(): string {
   if (!app.isPackaged) {
     return path.join(app.getAppPath(), 'api-tester-data')
   }
-  return path.join(path.dirname(app.getPath('exe')), 'api-tester-data')
+  const exeDir = path.dirname(app.getPath('exe'))
+  const legacyDir = path.join(exeDir, 'api-tester-data')
+  if (path.basename(exeDir).toLowerCase() !== LAYOUT_APP_DIR.toLowerCase()) {
+    return legacyDir
+  }
+  const layoutRoot = path.dirname(exeDir)
+  if (path.basename(layoutRoot).toLowerCase() !== LAYOUT_ROOT_DIR.toLowerCase()) {
+    return legacyDir
+  }
+  return path.join(layoutRoot, LAYOUT_DATA_DIR)
 }
 
 // Must run before ready — otherwise Roaming keeps getting a folder for caches / storage.
