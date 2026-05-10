@@ -4,7 +4,10 @@ import { ipcChannels, updaterPushChannel, type UpdaterPushPayload } from '@api-t
 
 const { autoUpdater } = electronUpdater
 
-export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
+export function setupAutoUpdater(
+  getWindow: () => BrowserWindow | null,
+  options?: { prepareForInstall?: () => void | Promise<void> }
+): void {
   function push(payload: UpdaterPushPayload): void {
     const w = getWindow()
     try {
@@ -89,7 +92,19 @@ export function setupAutoUpdater(getWindow: () => BrowserWindow | null): void {
     }
   })
 
-  ipcMain.handle(ipcChannels.updaterQuitAndInstall, () => {
+  ipcMain.handle(ipcChannels.updaterQuitAndInstall, async () => {
+    if (process.platform === 'win32') {
+      app.removeAllListeners('window-all-closed')
+    }
+    for (const w of BrowserWindow.getAllWindows()) {
+      w.removeAllListeners('close')
+      w.destroy()
+    }
+    try {
+      await options?.prepareForInstall?.()
+    } catch {
+      /* still attempt install */
+    }
     setImmediate(() => autoUpdater.quitAndInstall(false, true))
     return { ok: true as const }
   })

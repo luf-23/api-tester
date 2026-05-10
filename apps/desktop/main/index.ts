@@ -253,7 +253,13 @@ app.whenReady().then(() => {
   })
 
   createWindow()
-  setupAutoUpdater(() => mainWindow)
+  setupAutoUpdater(() => mainWindow, {
+    prepareForInstall: async () => {
+      await mockCtl.stop()
+      store?.close()
+      store = null
+    },
+  })
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
