@@ -18,3 +18,5 @@ apps/desktop/tsconfig.tsbuildinfo
 .idea
 .vscode/*
 !.vscode/extensions.json
+
+.VSCodeCounter
