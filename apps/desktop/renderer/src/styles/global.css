@@ -708,6 +708,7 @@ body.is-resizing-row .resize-handle--row::after {
   display: flex;
   align-items: stretch;
   flex: none;
+  min-width: 0;
   height: var(--tab-height);
   background: color-mix(in srgb, var(--bg-shell) 88%, var(--border-subtle));
   border-bottom: 1px solid var(--border-subtle);
@@ -719,10 +720,16 @@ body.is-resizing-row .resize-handle--row::after {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
+  overscroll-behavior-x: contain;
 }
-.tabs::-webkit-scrollbar { height: 0; width: 0; }
+.tabs::-webkit-scrollbar {
+  height: 0;
+  width: 0;
+}
 .tab {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1100,9 +1107,18 @@ body.is-resizing-row .resize-handle--row::after {
   min-height: 34px;
   height: 34px;
   flex: none;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
   background: color-mix(in srgb, var(--bg-elevated) 55%, var(--bg-app));
 }
+.subtabs::-webkit-scrollbar {
+  height: 0;
+  width: 0;
+}
 .subtab {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1149,6 +1165,7 @@ body.is-resizing-row .resize-handle--row::after {
 }
 .subtabs__spacer { flex: 1; }
 .subtabs__link {
+  flex-shrink: 0;
   color: var(--text-secondary);
   background: transparent;
   border: 0;

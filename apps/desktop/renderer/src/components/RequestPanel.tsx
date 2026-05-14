@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   Collection,
   Environment,
@@ -15,6 +15,7 @@ import { saveCollectionsToDisk } from '../lib/persistWorkspace'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 import { sendHttp } from '../lib/api'
+import { useWheelHorizontalScroll } from '../lib/useWheelHorizontalScroll'
 import { tryFormatJson } from '../lib/format'
 import { BulkKvModal } from './BulkKvModal'
 import { JsonBodyEditor } from './JsonBodyEditor'
@@ -78,6 +79,8 @@ function breadcrumbForRequest(collections: Collection[], request: RequestWithTes
 }
 
 export function RequestPanel({ request }: { request: RequestWithTests }) {
+  const subtabsScrollRef = useRef<HTMLElement>(null)
+  useWheelHorizontalScroll(subtabsScrollRef)
   const collections = useWorkspaceStore((s) => s.collections)
   const update = useWorkspaceStore((s) => s.updateRequest)
   const setKv = useWorkspaceStore((s) => s.setKv)
@@ -255,7 +258,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
         </button>
       </div>
 
-      <nav className="subtabs">
+      <nav ref={subtabsScrollRef} className="subtabs">
         {SUBTABS.map((tab) => {
           const count = tab.id === 'headers' ? enabledHeaders.length : 0
           return (

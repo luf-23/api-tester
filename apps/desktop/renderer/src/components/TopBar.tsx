@@ -3,6 +3,7 @@ import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
 import { ThemeCard } from './ThemeCard'
 import { ui } from '../locale/ui'
+import { useWheelHorizontalScroll } from '../lib/useWheelHorizontalScroll'
 import { saveCollectionsToDisk } from '../lib/persistWorkspace'
 import { IconClose, IconMore, IconPlus, IconSettings } from './icons'
 import { UnsavedPrompt } from './UnsavedPrompt'
@@ -13,6 +14,8 @@ type TabPrompt =
   | { kind: 'closeAll' }
 
 export function TopBar() {
+  const tabsScrollRef = useRef<HTMLDivElement>(null)
+  useWheelHorizontalScroll(tabsScrollRef)
   const settingsWrapRef = useRef<HTMLDivElement>(null)
   const tabMenuWrapRef = useRef<HTMLDivElement>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -115,7 +118,7 @@ export function TopBar() {
 
   return (
     <header className="topbar">
-      <div className="tabs" role="tablist" aria-label={ui.topBar.tablist}>
+      <div ref={tabsScrollRef} className="tabs" role="tablist" aria-label={ui.topBar.tablist}>
         {tabsMeta.map(({ id, request: r }) => {
           if (!r) return null
           const active = id === activeId
