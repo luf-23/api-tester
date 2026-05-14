@@ -43,10 +43,20 @@ export function applyVariablesToRequest(
       value: substituteString(h.value, vars),
     })),
     bodyText: substituteString(draft.bodyText, vars),
-    bodyFields: draft.bodyFields.map((f) => ({
-      ...f,
-      key: substituteString(f.key, vars),
-      value: substituteString(f.value, vars),
-    })),
+    bodyFields: draft.bodyFields.map((f) => {
+      if (f.partType === 'file') {
+        return {
+          ...f,
+          key: substituteString(f.key, vars),
+          fileName: f.fileName ? substituteString(f.fileName, vars) : f.fileName,
+          fileMime: f.fileMime ? substituteString(f.fileMime, vars) : f.fileMime,
+        }
+      }
+      return {
+        ...f,
+        key: substituteString(f.key, vars),
+        value: substituteString(f.value, vars),
+      }
+    }),
   }
 }

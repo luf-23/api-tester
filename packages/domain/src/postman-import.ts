@@ -201,7 +201,26 @@ function mapBody(body: unknown): {
     for (const row of formdata) {
       if (!row || typeof row !== 'object') continue
       const r = row as Record<string, unknown>
-      if (String(r.type) === 'file') continue
+      if (String(r.type) === 'file') {
+        const src = r.src
+        let name = 'file'
+        if (Array.isArray(src) && src.length > 0) {
+          name = String(src[src.length - 1] ?? 'file')
+        } else if (typeof src === 'string' && src.trim() !== '') {
+          const norm = src.replace(/\\/g, '/')
+          name = norm.split('/').pop() || 'file'
+        }
+        fields.push({
+          id: cryptoRandomId(),
+          key: String(r.key ?? ''),
+          value: '',
+          enabled: !r.disabled,
+          partType: 'file',
+          fileName: name,
+          fileBase64: '',
+        })
+        continue
+      }
       fields.push({
         id: cryptoRandomId(),
         key: String(r.key ?? ''),

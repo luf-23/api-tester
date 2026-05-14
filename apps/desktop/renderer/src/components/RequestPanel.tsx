@@ -18,6 +18,7 @@ import { sendHttp } from '../lib/api'
 import { tryFormatJson } from '../lib/format'
 import { BulkKvModal } from './BulkKvModal'
 import { JsonBodyEditor } from './JsonBodyEditor'
+import { FormDataFieldsEditor } from './FormDataFieldsEditor'
 import { KeyValueEditor } from './KeyValueEditor'
 import { MethodPick } from './MethodPick'
 import { IconSave, IconSend } from './icons'
@@ -369,20 +370,29 @@ function BodyEditor({ request }: { request: RequestWithTests }) {
       </div>
 
       <div className="body-editor__main">
-        {(request.bodyMode === 'form-urlencoded' || request.bodyMode === 'form-data') && (
+        {request.bodyMode === 'form-urlencoded' && (
           <>
             <div className="kv__title-row body-editor__kv-head">
-              <h4 className="request-subpanel__title">
-                {request.bodyMode === 'form-urlencoded'
-                  ? ui.request.bodyModes['form-urlencoded']
-                  : ui.request.bodyModes['form-data']}
-              </h4>
+              <h4 className="request-subpanel__title">{ui.request.bodyModes['form-urlencoded']}</h4>
             </div>
             <div className="body-editor__kv-scroll">
               <KeyValueEditor
                 rows={request.bodyFields}
                 onChange={(rows) => setKv(request.id, 'bodyFields', rows)}
                 withDescription={false}
+              />
+            </div>
+          </>
+        )}
+        {request.bodyMode === 'form-data' && (
+          <>
+            <div className="kv__title-row body-editor__kv-head">
+              <h4 className="request-subpanel__title">{ui.request.bodyModes['form-data']}</h4>
+            </div>
+            <div className="body-editor__kv-scroll">
+              <FormDataFieldsEditor
+                rows={request.bodyFields}
+                onChange={(rows) => setKv(request.id, 'bodyFields', rows)}
               />
             </div>
           </>

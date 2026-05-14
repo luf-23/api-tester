@@ -20,6 +20,17 @@ export interface KeyValue {
   hidden?: boolean
   /** Built-in header row: header name fixed; value still editable when enabling the row. */
   preset?: boolean
+  /**
+   * multipart/form-data only: `file` sends `fileBase64` as the part body (filename / MIME optional).
+   * Omitted or `text` keeps `value` as a normal text field.
+   */
+  partType?: 'text' | 'file'
+  /** Original filename for the file part (Content-Disposition). */
+  fileName?: string
+  /** Optional Content-Type for the file part. */
+  fileMime?: string
+  /** Base64-encoded file bytes for send (populated when user attaches a file in the UI). */
+  fileBase64?: string
 }
 
 /** Per-request options passed to the HTTP client when sending. */

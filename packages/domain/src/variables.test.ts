@@ -41,4 +41,32 @@ describe('variables', () => {
   it('returns empty string for missing var', () => {
     expect(substituteString('x={{missing}}', {})).toBe('x=')
   })
+
+  it('substitutes vars in form-data file keys and filenames without touching base64', () => {
+    const draft: RequestDraft = {
+      id: 'r1',
+      name: 't',
+      method: 'POST',
+      url: 'https://example.com',
+      params: [],
+      headers: [],
+      bodyMode: 'form-data',
+      bodyText: '',
+      bodyFields: [
+        {
+          id: 'f1',
+          key: '{{field}}',
+          value: '',
+          enabled: true,
+          partType: 'file',
+          fileName: '{{name}}.txt',
+          fileBase64: 'YWI=', // "ab"
+        },
+      ],
+    }
+    const out = applyVariablesToRequest(draft, { field: 'upload', name: 'doc' })
+    expect(out.bodyFields[0].key).toBe('upload')
+    expect(out.bodyFields[0].fileName).toBe('doc.txt')
+    expect(out.bodyFields[0].fileBase64).toBe('YWI=')
+  })
 })

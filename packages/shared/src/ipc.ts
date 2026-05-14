@@ -8,6 +8,10 @@ export const keyValueSchema = z.object({
   enabled: z.boolean(),
   hidden: z.boolean().optional(),
   preset: z.boolean().optional(),
+  partType: z.enum(['text', 'file']).optional(),
+  fileName: z.string().optional(),
+  fileMime: z.string().optional(),
+  fileBase64: z.string().optional(),
 })
 
 export const requestSendSettingsSchema = z.object({

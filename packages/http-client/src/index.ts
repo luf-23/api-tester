@@ -95,7 +95,37 @@ function buildAxiosConfig(draft: RequestDraft): BuildConfigResult {
       const fd = new FormData()
       for (const f of draft.bodyFields) {
         if (!f.enabled || !f.key) continue
-        fd.append(f.key, f.value)
+        if (f.partType === 'file') {
+          const raw = f.fileBase64?.trim() ?? ''
+          if (!raw) {
+            return {
+              ok: false,
+              result: {
+                response: emptyResponse(0),
+                error: `Form-data file field "${f.key}" has no file attached`,
+              },
+            }
+          }
+          const buf = Buffer.from(raw, 'base64')
+          if (buf.length === 0) {
+            return {
+              ok: false,
+              result: {
+                response: emptyResponse(0),
+                error:
+                  raw.length > 0
+                    ? `Form-data file field "${f.key}" has invalid base64 payload`
+                    : `Form-data file field "${f.key}" has no file attached`,
+              },
+            }
+          }
+          const opts: { filename?: string; contentType?: string } = {}
+          if (f.fileName) opts.filename = f.fileName
+          if (f.fileMime) opts.contentType = f.fileMime
+          fd.append(f.key, buf, opts)
+        } else {
+          fd.append(f.key, f.value)
+        }
       }
       config.data = fd
       const formHeaders = fd.getHeaders() as Record<string, string>
