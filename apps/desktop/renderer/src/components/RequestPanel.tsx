@@ -97,7 +97,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   )
 
   const onSaveNow = useCallback(async () => {
-    const r = await saveCollectionsToDisk()
+    const r = await saveCollectionsToDisk({ onlyRequestId: request.id })
     if (!r.ok) {
       if (r.message === 'no-bridge') {
         setSaveHint(ui.request.saveNoBridge)
@@ -110,7 +110,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
     }
     setSaveHint(ui.request.saveDone)
     window.setTimeout(() => setSaveHint(null), 2200)
-  }, [])
+  }, [request.id])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

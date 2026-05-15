@@ -227,7 +227,10 @@ interface WorkspaceState {
   /** Request tabs with unsaved edits (relative to last persisted snapshot). */
   dirtyRequestIds: Record<string, true>
   expanded: Record<string, boolean>
-  syncPersistedSnapshot: (collectionsJson: string) => void
+  syncPersistedSnapshot: (
+    collectionsJson: string,
+    dirty?: 'clear-all' | { clearRequestIds: string[] }
+  ) => void
   revertTabDiscard: (requestId: string) => void
   revertWorkspaceToLastPersisted: () => void
   hasUnsavedChanges: () => boolean
@@ -254,10 +257,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   collections: [],
   lastPersistedCollectionsJson: null,
   dirtyRequestIds: {},
-  syncPersistedSnapshot: (collectionsJson) =>
-    set({
-      lastPersistedCollectionsJson: collectionsJson,
-      dirtyRequestIds: {},
+  syncPersistedSnapshot: (collectionsJson, dirty = 'clear-all') =>
+    set((s) => {
+      if (dirty === 'clear-all') {
+        return {
+          lastPersistedCollectionsJson: collectionsJson,
+          dirtyRequestIds: {},
+        }
+      }
+      const nextDirty = { ...s.dirtyRequestIds }
+      for (const id of dirty.clearRequestIds) {
+        delete nextDirty[id]
+      }
+      return {
+        lastPersistedCollectionsJson: collectionsJson,
+        dirtyRequestIds: nextDirty,
+      }
     }),
   revertTabDiscard: (requestId) => {
     const snap = get().lastPersistedCollectionsJson

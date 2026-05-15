@@ -1,6 +1,13 @@
 import express from 'express'
+import multer from 'multer'
 import type { MockRoute } from '@api-tester/shared'
 import type { Server } from 'node:http'
+
+/** Built-in multipart echo for file upload testing (any field names). */
+const uploadTestMulter = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024, files: 32 },
+})
 
 export class MockServerController {
   private server: Server | null = null
@@ -19,6 +26,42 @@ export class MockServerController {
     const app = express()
     app.use(express.json({ limit: '2mb' }))
     app.use(express.text({ limit: '2mb', type: '*/*' }))
+
+    /**
+     * `POST /__api-tester/upload` — accepts `multipart/form-data` (files + text fields).
+     * Response JSON echoes field names, text values, and per-file metadata (no file bytes).
+     * Use with the in-app Mock Server URL, e.g. `http://127.0.0.1:<port>/__api-tester/upload`.
+     */
+    app.post('/__api-tester/upload', (req, res) => {
+      uploadTestMulter.any()(req, res, (err: unknown) => {
+        if (err) {
+          if (err instanceof multer.MulterError) {
+            const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400
+            res.status(status).json({
+              ok: false,
+              error: err.code,
+              message: err.message,
+            })
+            return
+          }
+          const msg = err instanceof Error ? err.message : String(err)
+          res.status(400).json({ ok: false, error: 'UploadError', message: msg })
+          return
+        }
+        const files = (req.files as Express.Multer.File[] | undefined) ?? []
+        res.status(200).json({
+          ok: true,
+          message: 'Multipart echo (built-in upload test endpoint).',
+          fields: req.body as Record<string, unknown>,
+          files: files.map((f) => ({
+            fieldname: f.fieldname,
+            originalname: f.originalname,
+            mimetype: f.mimetype,
+            size: f.size,
+          })),
+        })
+      })
+    })
 
     for (const r of routes) {
       const method = r.method.toLowerCase() as Lowercase<typeof r.method>

@@ -232,7 +232,10 @@ export function TopBar() {
         onCancel={() => setTabPrompt(null)}
         onSave={async () => {
           const p = tabPrompt
-          const r = await saveCollectionsToDisk()
+          const r =
+            p?.kind === 'single'
+              ? await saveCollectionsToDisk({ onlyRequestId: p.id })
+              : await saveCollectionsToDisk()
           if (!r.ok) {
             window.alert(ui.unsaved.saveFailed(r.message))
             throw new Error('save-failed')
