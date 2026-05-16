@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { UpdaterPushPayload } from '@api-tester/shared'
 import { ui } from '../locale/ui'
+import { Spinner } from './ui/Spinner'
 
 type Phase = 'hidden' | 'offer' | 'downloading' | 'ready' | 'error'
 
@@ -90,7 +91,10 @@ export function UpdateBanner() {
       )}
       {phase === 'downloading' && (
         <>
-          <span className="update-banner__text">{ui.update.downloading(percent)}</span>
+          <span className="update-banner__text update-banner__text--loading">
+            <Spinner size="sm" />
+            {ui.update.downloading(percent)}
+          </span>
           <div className="update-banner__progress" aria-hidden>
             <div className="update-banner__progress-fill" style={{ width: `${percent}%` }} />
           </div>

@@ -109,6 +109,10 @@ input, textarea, select, option {
   font-weight: 600;
   color: var(--text-primary);
 }
+.update-banner__text--loading {
+  align-items: center;
+  gap: 10px;
+}
 .update-banner__text--err {
   font-weight: 500;
   color: var(--status-4xx, #d14545);
@@ -254,9 +258,61 @@ body.is-resizing-row .resize-handle--row::after {
   justify-content: center;
 }
 .app__boot {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
   font-size: var(--fs-lead);
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+/* ---------- Loading (lucide Loader2) ---------- */
+.spinner-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  color: var(--accent-strong);
+  animation: response-spinner-rotate 0.68s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner-icon {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+.spinner-icon--sm { width: 14px; height: 14px; }
+.spinner-icon--md { width: 16px; height: 16px; }
+.spinner-icon--lg { width: 22px; height: 22px; }
+.spinner-with-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.btn.is-loading,
+.icon-btn.is-loading {
+  cursor: wait;
+  opacity: 0.88;
+}
+.btn.is-loading:not(:disabled):hover,
+.icon-btn.is-loading:not(:disabled):hover {
+  background: inherit;
+}
+.icon-btn.is-loading .spinner-icon {
+  color: var(--text-secondary);
+}
+.icon-btn.is-accent.is-loading .spinner-icon {
+  color: var(--on-accent);
 }
 
 /* ---------- Collections panel ----------
@@ -638,6 +694,10 @@ body.is-resizing-row .resize-handle--row::after {
   justify-content: flex-end;
 }
 .confirm-dialog__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 30px;
   padding: 0 14px;
   border-radius: 4px;
@@ -981,6 +1041,8 @@ body.is-resizing-row .resize-handle--row::after {
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 .btn--primary:hover { background: var(--accent-strong); color: var(--on-accent); }
+.btn--primary.is-loading { opacity: 0.92; }
+.btn--primary.is-loading .spinner-icon { color: var(--on-accent); }
 .btn--sm {
   min-height: 28px;
   padding: 4px 12px;

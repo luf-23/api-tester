@@ -22,6 +22,7 @@ export const ui = {
     quitBody:
       '工作区有未保存的更改。可选择保存并退出、放弃更改并退出，或取消留在应用中。（打开的标签页会在保存或退出后记住，下次启动恢复。）',
     save: '保存',
+    saving: '正在保存…',
     discard: '放弃更改',
     cancel: '取消',
     saveFailed: (msg: string) => `保存失败：${msg}`,
@@ -44,6 +45,8 @@ export const ui = {
     clearSearch: '清除搜索',
     importTitle: '导入集合',
     exportTitle: '导出工作区',
+    importing: '正在导入…',
+    exporting: '正在导出…',
     newCollectionTitle: '新建集合',
     toastImported: '已导入集合',
     /** c = collections, e = environments, renamed = rows auto-renamed for duplicate names */
@@ -105,6 +108,7 @@ export const ui = {
   /** 右侧请求编辑器：英文术语（与 Postman / OpenAPI 惯例一致） */
   request: {
     save: 'Save',
+    saving: 'Saving…',
     saveDone: 'Saved to disk',
     saveFail: 'Save failed',
     saveNoBridge: 'Saving requires the desktop app — data is in memory only.',
@@ -113,6 +117,7 @@ export const ui = {
     viewCode: 'View code',
     urlPlaceholder: 'https://api.example.com/v1/resource',
     send: 'Send',
+    sending: 'Sending…',
     cookiesLink: 'Cookies',
     queryParams: 'Query Params',
     bulkEdit: 'Bulk Edit',

@@ -35,6 +35,8 @@ import {
   IconSearch,
   IconTrash,
 } from './icons'
+import { AnimatedOverlay } from './ui/AnimatedOverlay'
+import { Spinner } from './ui/Spinner'
 
 function isRequest(n: FolderNode | RequestWithTests): n is RequestWithTests {
   return 'method' in n
@@ -81,6 +83,8 @@ export function CollectionsPanel() {
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [drag, setDrag] = useState<{ id: string; over?: string; pos?: DropPosition } | null>(
     null
   )
@@ -147,6 +151,7 @@ export function CollectionsPanel() {
     input.onchange = async () => {
       const file = input.files?.[0]
       if (!file) return
+      setImporting(true)
       try {
         const text = await file.text()
         let parsed: unknown
@@ -209,12 +214,15 @@ export function CollectionsPanel() {
         showToast(`${ui.collections.importFail}：需在桌面应用内使用导入`, 'err')
       } catch (err) {
         showToast(`${ui.collections.importFail}：${(err as Error).message}`, 'err')
+      } finally {
+        setImporting(false)
       }
     }
     input.click()
   }, [mergePostman, showToast])
 
   const handleExport = useCallback(async () => {
+    setExporting(true)
     try {
       const bridge = window.apiTester
       const text = bridge?.exportWorkspace
@@ -230,6 +238,8 @@ export function CollectionsPanel() {
       showToast(ui.collections.toastExportOk)
     } catch (err) {
       showToast(`${ui.collections.exportFail}：${(err as Error).message}`, 'err')
+    } finally {
+      setExporting(false)
     }
   }, [collections, showToast])
 
@@ -305,11 +315,25 @@ export function CollectionsPanel() {
               </button>
             )}
           </div>
-          <button className="icon-btn" title={ui.collections.importTitle} onClick={handleImport}>
-            <IconImport />
+          <button
+            type="button"
+            className={`icon-btn${importing ? ' is-loading' : ''}`}
+            title={importing ? ui.collections.importing : ui.collections.importTitle}
+            disabled={importing}
+            aria-busy={importing}
+            onClick={handleImport}
+          >
+            {importing ? <Spinner size="sm" /> : <IconImport />}
           </button>
-          <button className="icon-btn" title={ui.collections.exportTitle} onClick={handleExport}>
-            <IconExport />
+          <button
+            type="button"
+            className={`icon-btn${exporting ? ' is-loading' : ''}`}
+            title={exporting ? ui.collections.exporting : ui.collections.exportTitle}
+            disabled={exporting}
+            aria-busy={exporting}
+            onClick={() => void handleExport()}
+          >
+            {exporting ? <Spinner size="sm" /> : <IconExport />}
           </button>
           <button
             className="icon-btn is-accent"
@@ -827,14 +851,13 @@ function DeleteConfirmDialog({
     cancelRef.current?.focus({ preventScroll: true })
   }, [])
   return (
-    <div className="confirm-overlay" role="presentation" onClick={onCancel}>
+    <AnimatedOverlay open onBackdropClick={onCancel}>
       <div
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descId}
         className="confirm-dialog"
-        onClick={(e) => e.stopPropagation()}
       >
         <h2 id={titleId} className="confirm-dialog__title">
           {ui.collections.confirmDeleteTitle}
@@ -860,7 +883,7 @@ function DeleteConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </AnimatedOverlay>
   )
 }
 

@@ -16,6 +16,7 @@ import { useTabsStore } from './store/tabs'
 import { useWorkspaceStore } from './store/workspace'
 import { useThemeStore } from './store/theme'
 import { ui } from './locale/ui'
+import { BootScreen } from './components/ui/BootScreen'
 
 const LS_SIDEBAR = 'api-tester.sidebarW'
 const LS_SPLIT = 'api-tester.editorSplit'
@@ -208,11 +209,7 @@ export default function App() {
   }, [])
 
   if (!boot.ui) {
-    return (
-      <div className="app app--boot">
-        <div className="app__boot">{ui.app.loadingWorkspace}</div>
-      </div>
-    )
+    return <BootScreen message={ui.app.loadingWorkspace} />
   }
 
   return (

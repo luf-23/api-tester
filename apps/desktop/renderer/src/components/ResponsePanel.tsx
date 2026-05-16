@@ -5,6 +5,7 @@ import { useTabsStore } from '../store/tabs'
 import { formatBytes, formatDuration, safeParseJson, statusClass, tryFormatJson } from '../lib/format'
 import { JsonView } from './JsonView'
 import { IconChevDown, IconSearch } from './icons'
+import { Spinner } from './ui/Spinner'
 
 const SECTIONS = [
   ui.response.sections.body,
@@ -122,8 +123,8 @@ const IMAGE_BODY_DISPLAY_CHAR_CAP = 96 * 1024
 function ResponseReceivingIndicator() {
   return (
     <div className="response__receiving-stack">
+      <Spinner size="sm" />
       <span className="muted">{ui.response.receivingResponse}</span>
-      <span className="response__spinner" aria-hidden />
     </div>
   )
 }
@@ -199,8 +200,11 @@ export function ResponsePanel({ requestId }: Props) {
   if (state?.loading && !state?.streaming) {
     return (
       <section className="response">
-        <div className="response__head">
-          <span className="muted">{ui.response.sending}</span>
+        <div className="response__head response__head--receiving-only">
+          <div className="response__receiving-stack">
+            <Spinner size="sm" />
+            <span className="muted">{ui.response.sending}</span>
+          </div>
         </div>
       </section>
     )

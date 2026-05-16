@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ui } from '../locale/ui'
+import { AnimatedOverlay } from './ui/AnimatedOverlay'
+import { Spinner } from './ui/Spinner'
 
 export function UnsavedPrompt({
   open,
@@ -18,24 +20,24 @@ export function UnsavedPrompt({
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null)
   const [busy, setBusy] = useState(false)
+  const [busyAction, setBusyAction] = useState<'save' | 'discard' | null>(null)
 
   useEffect(() => {
     if (!open) return
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel()
+      if (e.key === 'Escape' && !busy) onCancel()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onCancel])
+  }, [open, onCancel, busy])
 
   useEffect(() => {
     if (open) cancelRef.current?.focus({ preventScroll: true })
   }, [open])
 
-  if (!open) return null
-
-  const run = async (fn: () => void | Promise<void>) => {
+  const run = async (fn: () => void | Promise<void>, action: 'save' | 'discard') => {
     setBusy(true)
+    setBusyAction(action)
     try {
       await fn()
       onCancel()
@@ -43,17 +45,13 @@ export function UnsavedPrompt({
       /* parent may throw to keep dialog open */
     } finally {
       setBusy(false)
+      setBusyAction(null)
     }
   }
 
   return (
-    <div className="confirm-overlay" role="presentation" onClick={() => !busy && onCancel()}>
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        className="confirm-dialog"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <AnimatedOverlay open={open} onBackdropClick={() => !busy && onCancel()}>
+      <div role="alertdialog" aria-modal="true" className="confirm-dialog">
         <h2 className="confirm-dialog__title">{title}</h2>
         <p className="confirm-dialog__body">{body}</p>
         <div className="confirm-dialog__actions confirm-dialog__actions--triple">
@@ -70,20 +68,22 @@ export function UnsavedPrompt({
             type="button"
             className="confirm-dialog__btn"
             disabled={busy}
-            onClick={() => void run(onDiscard)}
+            onClick={() => void run(onDiscard, 'discard')}
           >
+            {busyAction === 'discard' && <Spinner size="sm" />}
             {ui.unsaved.discard}
           </button>
           <button
             type="button"
             className="confirm-dialog__btn confirm-dialog__btn--primary"
             disabled={busy}
-            onClick={() => void run(onSave)}
+            onClick={() => void run(onSave, 'save')}
           >
-            {ui.unsaved.save}
+            {busyAction === 'save' && <Spinner size="sm" />}
+            {busyAction === 'save' ? ui.unsaved.saving : ui.unsaved.save}
           </button>
         </div>
       </div>
-    </div>
+    </AnimatedOverlay>
   )
 }

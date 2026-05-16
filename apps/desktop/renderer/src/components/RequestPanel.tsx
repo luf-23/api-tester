@@ -23,6 +23,7 @@ import { FormDataFieldsEditor } from './FormDataFieldsEditor'
 import { KeyValueEditor } from './KeyValueEditor'
 import { MethodPick } from './MethodPick'
 import { IconSave, IconSend } from './icons'
+import { LoadingButton } from './ui/LoadingButton'
 
 const SUBTABS = [
   { id: 'params' as const, label: ui.request.subtabs.params },
@@ -87,7 +88,10 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   const setResponse = useTabsStore((s) => s.setResponse)
   const [active, setActive] = useState<SubtabId>('params')
   const [saveHint, setSaveHint] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const [paramsBulkOpen, setParamsBulkOpen] = useState(false)
+  const responseState = useTabsStore((s) => s.responses[request.id])
+  const sending = Boolean(responseState?.loading)
 
   const enabledHeaders = request.headers.filter((h) => h.enabled && h.key)
 
@@ -97,19 +101,24 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   )
 
   const onSaveNow = useCallback(async () => {
-    const r = await saveCollectionsToDisk({ onlyRequestId: request.id })
-    if (!r.ok) {
-      if (r.message === 'no-bridge') {
-        setSaveHint(ui.request.saveNoBridge)
+    setSaving(true)
+    try {
+      const r = await saveCollectionsToDisk({ onlyRequestId: request.id })
+      if (!r.ok) {
+        if (r.message === 'no-bridge') {
+          setSaveHint(ui.request.saveNoBridge)
+          window.setTimeout(() => setSaveHint(null), 3200)
+          return
+        }
+        setSaveHint(ui.request.saveFail)
         window.setTimeout(() => setSaveHint(null), 3200)
         return
       }
-      setSaveHint(ui.request.saveFail)
-      window.setTimeout(() => setSaveHint(null), 3200)
-      return
+      setSaveHint(ui.request.saveDone)
+      window.setTimeout(() => setSaveHint(null), 2200)
+    } finally {
+      setSaving(false)
     }
-    setSaveHint(ui.request.saveDone)
-    window.setTimeout(() => setSaveHint(null), 2200)
   }, [request.id])
 
   useEffect(() => {
@@ -237,9 +246,19 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           })}
         </div>
         <div className="header-actions">
-          <button type="button" className="btn" title={saveHint ?? undefined} onClick={() => void onSaveNow()}>
+          <LoadingButton
+            className="btn"
+            loading={saving}
+            loadingContent={
+              <>
+                <IconSave /> {ui.request.saving}
+              </>
+            }
+            title={saveHint ?? undefined}
+            onClick={() => void onSaveNow()}
+          >
             <IconSave /> {ui.request.save}
-          </button>
+          </LoadingButton>
           {saveHint && <span className="request__hint muted">{saveHint}</span>}
         </div>
       </div>
@@ -253,9 +272,18 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           placeholder={ui.request.urlPlaceholder}
           spellCheck={false}
         />
-        <button type="button" className="btn btn--primary url-bar__send" onClick={onSend}>
+        <LoadingButton
+          className="btn btn--primary url-bar__send"
+          loading={sending}
+          loadingContent={
+            <>
+              <IconSend /> {ui.request.sending}
+            </>
+          }
+          onClick={onSend}
+        >
           <IconSend /> {ui.request.send}
-        </button>
+        </LoadingButton>
       </div>
 
       <nav ref={subtabsScrollRef} className="subtabs">

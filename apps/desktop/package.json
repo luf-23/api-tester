@@ -1,6 +1,6 @@
 {
   "name": "@api-tester/desktop",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "private": true,
   "repository": {
     "type": "git",
@@ -35,14 +35,16 @@
     "@uiw/react-codemirror": "^4.25.9",
     "better-sqlite3": "^11.8.1",
     "electron-updater": "^6.3.9",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.16.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "electron": "^33.2.1",
     "adm-zip": "^0.5.16",
+    "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
     "electron-rebuild": "^3.2.9",
     "electron-vite": "^2.3.0",
@@ -65,7 +67,10 @@
     "win": {
       "executableName": "API-Tester",
       "artifactName": "API-Tester-Setup-${version}.${ext}",
-      "target": ["nsis", "zip"]
+      "target": [
+        "nsis",
+        "zip"
+      ]
     },
     "mac": {
       "target": [
