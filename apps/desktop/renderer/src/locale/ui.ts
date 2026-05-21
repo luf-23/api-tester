@@ -117,6 +117,7 @@ export const ui = {
     viewCode: 'View code',
     urlPlaceholder: 'https://api.example.com/v1/resource',
     send: 'Send',
+    sendTitle: (modKey: string) => `Send (${modKey}+Enter)`,
     sending: 'Sending…',
     cookiesLink: 'Cookies',
     queryParams: 'Query Params',

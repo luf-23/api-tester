@@ -121,17 +121,12 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
     }
   }, [request.id])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.key !== 's') return
-      e.preventDefault()
-      void onSaveNow()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onSaveNow])
+  const sendModKey =
+    typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+      ? '⌘'
+      : 'Ctrl'
 
-  const onSend = async () => {
+  const onSend = useCallback(async () => {
     const sendOpts = { ...defaultSendSettings(), ...request.sendSettings }
     const wantStream = sendOpts.streamResponse !== false
     const canStream = typeof window.apiTester?.sendHttpStream === 'function'
@@ -229,7 +224,24 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
         receivedAt: Date.now(),
       })
     }
-  }
+  }, [request, setResponse])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      if (e.key === 's') {
+        e.preventDefault()
+        void onSaveNow()
+        return
+      }
+      if (e.key !== 'Enter' || e.shiftKey) return
+      if (sending || saving || paramsBulkOpen) return
+      e.preventDefault()
+      void onSend()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onSaveNow, onSend, sending, saving, paramsBulkOpen])
 
   return (
     <section className="request">
@@ -275,12 +287,13 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
         <LoadingButton
           className="btn btn--primary url-bar__send"
           loading={sending}
+          title={ui.request.sendTitle(sendModKey)}
           loadingContent={
             <>
               <IconSend /> {ui.request.sending}
             </>
           }
-          onClick={onSend}
+          onClick={() => void onSend()}
         >
           <IconSend /> {ui.request.send}
         </LoadingButton>
