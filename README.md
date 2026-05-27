@@ -1,10 +1,25 @@
 # JadeAPI Studio
 
-一款**轻量级**的桌面 **API 测试工具**：专注发请求、看响应、管集合与环境，界面与交互参考 Postman / Insomnia，但刻意保持简单，适合日常调试而不是大而全的平台。
+一款**轻量级**的桌面 **API 测试工具**：专注发请求、看响应、管集合与环境。界面与交互贴近 Postman / Insomnia，数据与运行以本机为主，不做在线账号、协作同步与平台化能力堆叠。
 
-技术栈：**Electron · React · TypeScript · Zustand**。
+## 为什么做这个项目
 
-仓库根包名为 `api-tester`，桌面应用为 `@api-tester/desktop`。
+日常接口调试往往离不开 Postman 一类工具，但常见痛点有两类：
+
+- **产品臃肿**：协作、监控、Flows 等能力越堆越多，安装包变大、启动变慢，对大部分的场景来说负担过重。
+- **国内使用不便**：官方客户端依赖在线账号与同步，访问与更新常受网络环境影响；团队也更希望数据留在本机、不绑云。
+
+JadeAPI Studio 定位：核心流程（请求、响应、集合、环境变量）做扎实，其余能力（Mock、Postman 导入、简单 Runner 等）按需轻量提供，不追求做成平台型产品。
+
+技术栈：**Electron · React · TypeScript · Zustand**。仓库根包名为 `api-tester`，桌面应用为 `@api-tester/desktop`。
+
+## 下载（Releases）
+
+不想从源码构建时，可直接使用已打包的安装包：
+
+**[GitHub Releases](https://github.com/luf-23/api-tester/releases)** — 推送 `v*` 标签后 CI 会在 Windows / macOS / Linux 上构建并上传对应产物（`.exe`、`.dmg`、`.AppImage` 等，以各版本 Release 说明为准）。
+
+从源码开发或自行打包，见下文「开发与调试」。
 
 ## 功能概览
 
