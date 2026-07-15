@@ -90,8 +90,9 @@ function exposeResponseDownload(result: Awaited<ReturnType<typeof sendRequest>>)
 
 function safeSuggestedFileName(value: unknown): string {
   const raw = typeof value === 'string' ? value.trim() : ''
-  const base = path.basename(raw || 'response.bin').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
-  return base && base !== '.' ? base : 'response.bin'
+  const base = path.basename(raw || 'response.bin').replace(/[<>:"/\\|?*]/g, '_')
+  const cleaned = Array.from(base, (char) => (char.charCodeAt(0) < 32 ? '_' : char)).join('')
+  return cleaned && cleaned !== '.' ? cleaned : 'response.bin'
 }
 
 /** Prefer path next to main bundle; fall back to package `out/preload` (pnpm / cwd quirks). */

@@ -23,6 +23,13 @@ describe('response downloads', () => {
     expect(isBinaryResponse(value)).toBe(true)
   })
 
+  it('sanitizes path separators and control characters in server filenames', () => {
+    const value = response({
+      'content-disposition': 'attachment; filename="../bad\u0001name.xlsx"',
+    })
+    expect(suggestedResponseFileName(value)).toBe('bad_name.xlsx')
+  })
+
   it('does not classify JSON and text as binary', () => {
     expect(isBinaryResponse(response({ 'content-type': 'application/json; charset=utf-8' }))).toBe(false)
     expect(isBinaryResponse(response({ 'content-type': 'text/csv' }))).toBe(false)

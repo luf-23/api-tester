@@ -32,7 +32,8 @@ export function headerValue(headers: Record<string, string>, name: string): stri
 
 function cleanFileName(value: string): string {
   const withoutPath = value.replace(/\\/g, '/').split('/').pop()?.trim() ?? ''
-  return withoutPath.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
+  const safePunctuation = withoutPath.replace(/[<>:"/\\|?*]/g, '_')
+  return Array.from(safePunctuation, (char) => (char.charCodeAt(0) < 32 ? '_' : char)).join('')
 }
 
 function contentDispositionFileName(value: string): string {
