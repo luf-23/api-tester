@@ -21,9 +21,14 @@ declare global {
           sizeBytes: number
           bodyBase64?: string
           bodyMime?: string
+          downloadId?: string
         }
         error?: string
       }>
+      saveResponseBody: (
+        downloadId: string,
+        suggestedName: string
+      ) => Promise<{ ok: true; canceled: boolean; filePath?: string } | { ok: false; error: string }>
       sendHttpStream: (
         payload: {
           request: RequestDraft

@@ -3,8 +3,9 @@ import type { HttpResponseView } from '@api-tester/shared'
 import { ui } from '../locale/ui'
 import { useTabsStore } from '../store/tabs'
 import { formatBytes, formatDuration, safeParseJson, statusClass, tryFormatJson } from '../lib/format'
+import { isBinaryResponse, suggestedResponseFileName } from '../lib/responseDownload'
 import { JsonView } from './JsonView'
-import { IconChevDown, IconSearch } from './icons'
+import { IconChevDown, IconSave, IconSearch } from './icons'
 import { Spinner } from './ui/Spinner'
 
 const SECTIONS = [
@@ -133,6 +134,7 @@ export function ResponsePanel({ requestId }: Props) {
   const state = useTabsStore((s) => s.responses[requestId])
   const [section, setSection] = useState<Section>(SECTIONS[0])
   const [view, setView] = useState<ViewTab>(VIEW_TABS[0])
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const prevRequestId = useRef(requestId)
 
   const response = state?.response
@@ -155,6 +157,10 @@ export function ResponsePanel({ requestId }: Props) {
     )
       setView(VIEW_TABS[2])
   }, [requestId, state?.response, state?.loading, state?.receivedAt])
+
+  useEffect(() => {
+    setSaveState('idle')
+  }, [requestId, state?.receivedAt])
   const sectionCounts = useMemo(() => {
     if (!response) return emptySectionCounts()
     const headerCount = Object.keys(response.headers).length
@@ -176,26 +182,32 @@ export function ResponsePanel({ requestId }: Props) {
     [response]
   )
 
+  const binaryLike = useMemo(
+    () => (response ? isBinaryResponse(response) : false),
+    [response]
+  )
+
   const { formatted, json } = useMemo(() => {
     if (!response) {
       return { formatted: { pretty: '', ok: false as const }, json: undefined as unknown }
     }
-    if (imageLike || htmlLike) {
+    if (binaryLike || htmlLike) {
       return { formatted: { pretty: '', ok: false as const }, json: undefined as unknown }
     }
     return {
       formatted: tryFormatJson(response.bodyText),
       json: safeParseJson(response.bodyText),
     }
-  }, [response, imageLike, htmlLike])
+  }, [response, binaryLike, htmlLike])
 
   const rawDisplayText = useMemo(() => {
     if (!response) return ''
+    if (binaryLike) return ui.response.binaryBodyHidden
     if (!imageLike || response.bodyText.length <= IMAGE_BODY_DISPLAY_CHAR_CAP) {
       return response.bodyText
     }
     return `${response.bodyText.slice(0, IMAGE_BODY_DISPLAY_CHAR_CAP)}\n\n…\n${ui.response.rawImageTruncated}`
-  }, [response, imageLike])
+  }, [response, imageLike, binaryLike])
 
   if (state?.loading && !state?.streaming) {
     return (
@@ -248,6 +260,23 @@ export function ResponsePanel({ requestId }: Props) {
   const imagePreviewMissing = responseImagePreviewMissing(r)
   const htmlTooLarge = responseHtmlTooLargeForPreview(r)
   const htmlSrcDoc = responseHtmlPreviewSrcDoc(r)
+  const downloadName = suggestedResponseFileName(r)
+
+  const saveResponse = async () => {
+    if (!r.downloadId || !window.apiTester?.saveResponseBody) return
+    setSaveState('saving')
+    try {
+      const result = await window.apiTester.saveResponseBody(r.downloadId, downloadName)
+      if (!result.ok) {
+        setSaveState('error')
+        return
+      }
+      setSaveState(result.canceled ? 'idle' : 'saved')
+      if (!result.canceled) window.setTimeout(() => setSaveState('idle'), 2200)
+    } catch {
+      setSaveState('error')
+    }
+  }
 
   return (
     <section className="response">
@@ -295,6 +324,24 @@ export function ResponsePanel({ requestId }: Props) {
               >{v}</button>
             ))}
             {section === SECTIONS[0] && <div className="viewbar__spacer" />}
+            {section === SECTIONS[0] && r.downloadId && (
+              <button
+                type="button"
+                className="response__save-button"
+                onClick={() => void saveResponse()}
+                disabled={saveState === 'saving'}
+                title={downloadName}
+              >
+                <IconSave width={14} height={14} />
+                {saveState === 'saving'
+                  ? ui.response.savingFile
+                  : saveState === 'saved'
+                    ? ui.response.fileSaved
+                    : saveState === 'error'
+                      ? ui.response.saveFileFailed
+                      : ui.response.saveFile}
+              </button>
+            )}
           </div>
           {section === SECTIONS[0] &&
             (view === VIEW_TABS[1] ? (
@@ -325,12 +372,14 @@ export function ResponsePanel({ requestId }: Props) {
                     srcDoc={htmlSrcDoc}
                   />
                 </div>
+              ) : binaryLike ? (
+                <div className="response__preview-empty dim">{ui.response.previewBinaryNoVisual}</div>
               ) : (
                 <div className="response__preview-empty dim">{ui.response.previewNoVisual}</div>
               )
-            ) : imageLike ? (
+            ) : binaryLike ? (
               <div className="response__preview-empty dim" style={{ padding: 12 }}>
-                {ui.response.imageNotJsonBody}
+                {ui.response.binaryNotJsonBody}
               </div>
             ) : htmlLike ? (
               <div className="response__preview-empty dim" style={{ padding: 12 }}>

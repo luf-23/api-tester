@@ -188,8 +188,13 @@ export const ui = {
       raw: 'Raw',
       preview: 'Preview',
     },
+    saveFile: 'Save to file',
+    savingFile: 'Saving…',
+    fileSaved: 'Saved',
+    saveFileFailed: 'Save failed',
     previewNoVisual:
       'No visual preview for this response. Use JSON or Raw for text and structured data.',
+    previewBinaryNoVisual: 'This file cannot be previewed here. Use “Save to file” to keep the original file.',
     /** Small image/* response but preview payload missing (e.g. stale client). */
     previewImageMissing:
       'Image preview is unavailable for this response. Send again, or restart the app if you just updated.',
@@ -197,7 +202,9 @@ export const ui = {
       `Image is larger than ${maxMb} MB — preview is disabled to save memory.`,
     previewHtmlTooLarge:
       'HTML body is too large for preview — use Raw. (Limit protects memory and UI responsiveness.)',
-    imageBinaryHint: 'Binary image body — open Preview to render it; JSON/Raw text may look garbled.',
+    imageBinaryHint: 'Binary image body — open Preview to render it, or use “Save to file”.',
+    binaryBodyHidden: 'Binary response body is not shown as text. Use “Save to file” to keep the original bytes.',
+    binaryNotJsonBody: 'This is a binary response, not JSON. Use “Save to file” to save the original file.',
     /** JSON tab when Content-Type is image/* (body is not JSON). */
     imageNotJsonBody:
       'This response is image/binary data, not JSON. Use the Preview tab to view the image.',

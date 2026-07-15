@@ -84,6 +84,8 @@ export interface HttpResponseView {
   bodyBase64?: string
   /** MIME type for `bodyBase64` data URL (e.g. image/png). */
   bodyMime?: string
+  /** Opaque, short-lived handle used by Electron's main process to save the raw response bytes. */
+  downloadId?: string
 }
 
 export interface HistoryEntry {

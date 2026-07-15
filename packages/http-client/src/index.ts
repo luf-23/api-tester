@@ -12,6 +12,8 @@ import {
 export interface SendResult {
   response: HttpResponseView
   error?: string
+  /** Exact response bytes. Main-process callers may retain these for Save As; never persist them as text. */
+  rawBody?: Uint8Array
 }
 
 export interface StreamHandlers {
@@ -150,12 +152,12 @@ export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
     const res = await axios.request(config)
     const durationMs = Date.now() - started
     const bytes = responseDataToUint8Array(res.data)
-    const bodyText = utf8DecodeLossy(bytes)
     const outHeaders: Record<string, string> = {}
     for (const [k, v] of Object.entries(res.headers as Record<string, unknown>)) {
       if (typeof v === 'string') outHeaders[k] = v
       else if (Array.isArray(v)) outHeaders[k] = v.join(', ')
     }
+    const bodyText = isTextualResponse(outHeaders) ? utf8DecodeLossy(bytes) : ''
     const preview = imagePreviewFields(bytes, outHeaders)
     const response: HttpResponseView = {
       status: res.status,
@@ -166,7 +168,7 @@ export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
       sizeBytes: bytes.byteLength,
       ...preview,
     }
-    return { response }
+    return { response, rawBody: bytes }
   } catch (e) {
     const durationMs = Date.now() - started
     return {
@@ -208,16 +210,17 @@ export async function sendRequestStream(
     const stream = res.data as Readable
     const chunks: Buffer[] = []
     const decoder = new TextDecoder('utf-8', { fatal: false })
+    const decodeAsText = isTextualResponse(outHeaders)
 
     return await new Promise((resolve) => {
       stream.on('data', (chunk: Buffer) => {
         chunks.push(chunk)
-        handlers.onChunk(decoder.decode(chunk, { stream: true }))
+        if (decodeAsText) handlers.onChunk(decoder.decode(chunk, { stream: true }))
       })
       stream.on('end', () => {
-        handlers.onChunk(decoder.decode())
+        if (decodeAsText) handlers.onChunk(decoder.decode())
         const bytes = Buffer.concat(chunks)
-        const bodyText = utf8DecodeLossy(new Uint8Array(bytes))
+        const bodyText = decodeAsText ? utf8DecodeLossy(new Uint8Array(bytes)) : ''
         const durationMs = Date.now() - started
         const preview = imagePreviewFields(new Uint8Array(bytes), outHeaders)
         resolve({
@@ -230,6 +233,7 @@ export async function sendRequestStream(
             sizeBytes: bytes.byteLength,
             ...preview,
           },
+          rawBody: new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength),
         })
       })
       stream.on('error', (err: Error) => {
@@ -286,6 +290,15 @@ function utf8DecodeLossy(bytes: Uint8Array): string {
   } catch {
     return ''
   }
+}
+
+function isTextualResponse(headers: Record<string, string>): boolean {
+  const mime = normalizeContentType(headers)
+  if (!mime || mime.startsWith('text/')) return true
+  if (mime === 'application/json' || mime.endsWith('+json')) return true
+  if (mime === 'application/xml' || mime.endsWith('+xml')) return true
+  if (mime.includes('javascript')) return true
+  return mime === 'application/x-www-form-urlencoded'
 }
 
 const PREVIEW_MAX_BYTES = 15 * 1024 * 1024

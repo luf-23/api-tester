@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -60,6 +61,38 @@ let mainWindow: BrowserWindow | null = null
 let allowMainWindowClose = false
 let store: WorkspaceStore | null = null
 const mockCtl = new MockServerController()
+
+const RESPONSE_DOWNLOAD_TTL_MS = 30 * 60_000
+const RESPONSE_DOWNLOAD_MAX_ENTRIES = 20
+const responseDownloads = new Map<string, { bytes: Uint8Array; createdAt: number }>()
+
+function exposeResponseDownload(result: Awaited<ReturnType<typeof sendRequest>>) {
+  const { rawBody, ...rendererResult } = result
+  if (!rawBody) return rendererResult
+
+  const now = Date.now()
+  for (const [id, item] of responseDownloads) {
+    if (now - item.createdAt > RESPONSE_DOWNLOAD_TTL_MS) responseDownloads.delete(id)
+  }
+  while (responseDownloads.size >= RESPONSE_DOWNLOAD_MAX_ENTRIES) {
+    const oldestId = responseDownloads.keys().next().value as string | undefined
+    if (!oldestId) break
+    responseDownloads.delete(oldestId)
+  }
+
+  const downloadId = randomUUID()
+  responseDownloads.set(downloadId, { bytes: rawBody, createdAt: now })
+  return {
+    ...rendererResult,
+    response: { ...rendererResult.response, downloadId },
+  }
+}
+
+function safeSuggestedFileName(value: unknown): string {
+  const raw = typeof value === 'string' ? value.trim() : ''
+  const base = path.basename(raw || 'response.bin').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
+  return base && base !== '.' ? base : 'response.bin'
+}
 
 /** Prefer path next to main bundle; fall back to package `out/preload` (pnpm / cwd quirks). */
 function resolvePreloadPath(): string {
@@ -148,7 +181,7 @@ app.whenReady().then(() => {
       }
     }
     const result = await sendRequest(prep.request)
-    return result
+    return exposeResponseDownload(result)
   })
 
   ipcMain.handle(ipcChannels.sendHttpStream, async (event, payload: unknown) => {
@@ -182,7 +215,35 @@ app.whenReady().then(() => {
       return { ok: false as const, error: result.error }
     }
 
-    return { ok: true as const, response: result.response }
+    const exposed = exposeResponseDownload(result)
+    return { ok: true as const, response: exposed.response }
+  })
+
+  ipcMain.handle(ipcChannels.saveResponseBody, async (event, payload: unknown) => {
+    const args = payload as { downloadId?: unknown; suggestedName?: unknown } | null
+    if (!args || typeof args.downloadId !== 'string') {
+      return { ok: false as const, error: 'Invalid download request' }
+    }
+    const cached = responseDownloads.get(args.downloadId)
+    if (!cached || Date.now() - cached.createdAt > RESPONSE_DOWNLOAD_TTL_MS) {
+      responseDownloads.delete(args.downloadId)
+      return { ok: false as const, error: 'Response data expired; send the request again.' }
+    }
+
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    const options: Electron.SaveDialogOptions = {
+      title: 'Save response',
+      defaultPath: safeSuggestedFileName(args.suggestedName),
+      properties: ['createDirectory', 'showOverwriteConfirmation'],
+    }
+    const choice = owner
+      ? await dialog.showSaveDialog(owner, options)
+      : await dialog.showSaveDialog(options)
+    if (choice.canceled || !choice.filePath) {
+      return { ok: true as const, canceled: true }
+    }
+    await fs.promises.writeFile(choice.filePath, cached.bytes)
+    return { ok: true as const, canceled: false, filePath: choice.filePath }
   })
 
   ipcMain.handle(ipcChannels.historyList, async () => store!.listHistory())

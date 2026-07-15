@@ -11,6 +11,8 @@ import {
 
 const api = {
   sendHttp: (payload: unknown) => ipcRenderer.invoke(ipcChannels.sendHttp, payload),
+  saveResponseBody: (downloadId: string, suggestedName: string) =>
+    ipcRenderer.invoke(ipcChannels.saveResponseBody, { downloadId, suggestedName }),
   sendHttpStream: (payload: unknown, onEvent: (evt: HttpStreamPushPayload) => void) => {
     const listener = (_e: Electron.IpcRendererEvent, evt: HttpStreamPushPayload) => {
       onEvent(evt)

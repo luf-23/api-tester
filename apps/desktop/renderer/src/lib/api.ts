@@ -10,6 +10,7 @@ export interface SendResult {
     sizeBytes: number
     bodyBase64?: string
     bodyMime?: string
+    downloadId?: string
   }
   error?: string
 }

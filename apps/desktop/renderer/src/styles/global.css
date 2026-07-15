@@ -1913,6 +1913,14 @@ body.is-resizing-row .resize-handle--row::after {
 .viewbar-tab:hover { color: var(--text-primary); }
 .viewbar-tab.is-active { color: var(--text-primary); background: var(--bg-elevated); }
 .viewbar__spacer { flex: 1; }
+.response__save-button {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--border-subtle); border-radius: 4px;
+  background: var(--bg-elevated); color: var(--text-primary);
+  padding: 4px 9px; font-size: var(--fs-caption); font-weight: 500;
+}
+.response__save-button:hover:not(:disabled) { background: var(--bg-hover); }
+.response__save-button:disabled { cursor: wait; opacity: 0.7; }
 
 .json-view {
   flex: 1;

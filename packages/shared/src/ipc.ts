@@ -94,6 +94,7 @@ export const mockStartSchema = z.object({
 export const ipcChannels = {
   sendHttp: 'http:send',
   sendHttpStream: 'http:sendStream',
+  saveResponseBody: 'http:saveResponseBody',
   dbHealth: 'db:health',
   historyList: 'history:list',
   historyAdd: 'history:add',
