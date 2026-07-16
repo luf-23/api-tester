@@ -5,7 +5,15 @@ import { useTabsStore } from '../store/tabs'
 import { formatBytes, formatDuration, safeParseJson, statusClass, tryFormatJson } from '../lib/format'
 import { isBinaryResponse, suggestedResponseFileName } from '../lib/responseDownload'
 import { JsonView } from './JsonView'
-import { IconChevDown, IconSave, IconSearch } from './icons'
+import {
+  IconCheck,
+  IconChevDown,
+  IconChevRight,
+  IconCopy,
+  IconSave,
+  IconSearch,
+  IconSend,
+} from './icons'
 import { Spinner } from './ui/Spinner'
 
 const SECTIONS = [
@@ -135,6 +143,8 @@ export function ResponsePanel({ requestId }: Props) {
   const [section, setSection] = useState<Section>(SECTIONS[0])
   const [view, setView] = useState<ViewTab>(VIEW_TABS[0])
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [copied, setCopied] = useState(false)
+  const [explorerOpen, setExplorerOpen] = useState(true)
   const prevRequestId = useRef(requestId)
 
   const response = state?.response
@@ -160,14 +170,15 @@ export function ResponsePanel({ requestId }: Props) {
 
   useEffect(() => {
     setSaveState('idle')
+    setCopied(false)
   }, [requestId, state?.receivedAt])
   const sectionCounts = useMemo(() => {
     if (!response) return emptySectionCounts()
     const headerCount = Object.keys(response.headers).length
-    const cookies = (response.headers['set-cookie'] ?? '').split(',').filter(Boolean).length
+    const cookies = response.headers['set-cookie'] ? 1 : 0
     return {
       [SECTIONS[0]]: 0,
-      [SECTIONS[1]]: cookies || (headerCount ? 2 : 0),
+      [SECTIONS[1]]: cookies,
       [SECTIONS[2]]: headerCount,
     } satisfies Record<Section, number>
   }, [response])
@@ -211,11 +222,12 @@ export function ResponsePanel({ requestId }: Props) {
 
   if (state?.loading && !state?.streaming) {
     return (
-      <section className="response">
-        <div className="response__head response__head--receiving-only">
-          <div className="response__receiving-stack">
-            <Spinner size="sm" />
-            <span className="muted">{ui.response.sending}</span>
+      <section className="response response--state">
+        <div className="response-state response-state--loading">
+          <div className="response-state__icon"><Spinner size="md" /></div>
+          <div>
+            <strong>{ui.response.sending}</strong>
+            <p>Connecting to the server and waiting for response headers.</p>
           </div>
         </div>
       </section>
@@ -224,9 +236,13 @@ export function ResponsePanel({ requestId }: Props) {
 
   if (state?.loading && state?.streaming && !state?.response) {
     return (
-      <section className="response">
-        <div className="response__head response__head--receiving-only">
-          <ResponseReceivingIndicator />
+      <section className="response response--state">
+        <div className="response-state response-state--loading">
+          <div className="response-state__icon"><Spinner size="md" /></div>
+          <div>
+            <strong>{ui.response.receivingResponse}</strong>
+            <p>The response stream will appear here as data arrives.</p>
+          </div>
         </div>
       </section>
     )
@@ -235,10 +251,13 @@ export function ResponsePanel({ requestId }: Props) {
   /** sendRequest still returns an empty HttpResponseView on failure; error carries the real reason. */
   if (state?.error) {
     return (
-      <section className="response">
-        <div className="response__head">
-          <span className="status-pill s-5xx">{ui.response.errorSending}</span>
-          <span className="muted">{state.error}</span>
+      <section className="response response--state">
+        <div className="response-state response-state--error">
+          <div className="response-state__icon" aria-hidden>!</div>
+          <div>
+            <strong>{ui.response.errorSending}</strong>
+            <p>{state.error}</p>
+          </div>
         </div>
       </section>
     )
@@ -246,9 +265,13 @@ export function ResponsePanel({ requestId }: Props) {
 
   if (!response) {
     return (
-      <section className="response">
-        <div className="response__head">
-          <span className="muted">{ui.response.noResponse}</span>
+      <section className="response response--state">
+        <div className="response-state response-state--empty">
+          <div className="response-state__icon" aria-hidden><IconSend /></div>
+          <div>
+            <strong>Response preview</strong>
+            <p>{ui.response.noResponse}</p>
+          </div>
         </div>
       </section>
     )
@@ -275,6 +298,17 @@ export function ResponsePanel({ requestId }: Props) {
       if (!result.canceled) window.setTimeout(() => setSaveState('idle'), 2200)
     } catch {
       setSaveState('error')
+    }
+  }
+
+  const copyResponse = async () => {
+    if (!r.bodyText || binaryLike) return
+    try {
+      await navigator.clipboard.writeText(r.bodyText)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    } catch {
+      setCopied(false)
     }
   }
 
@@ -312,7 +346,7 @@ export function ResponsePanel({ requestId }: Props) {
         </div>
       </div>
 
-      <div className="response__body">
+      <div className={`response__body${explorerOpen ? '' : ' response__body--wide'}`}>
         <div className="response__view">
           <div className="response__viewbar">
             {section === SECTIONS[0] && VIEW_TABS.map((v) => (
@@ -324,6 +358,17 @@ export function ResponsePanel({ requestId }: Props) {
               >{v}</button>
             ))}
             {section === SECTIONS[0] && <div className="viewbar__spacer" />}
+            {section === SECTIONS[0] && !binaryLike && r.bodyText && (
+              <button
+                type="button"
+                className="response__tool-button"
+                onClick={() => void copyResponse()}
+                title="Copy response body"
+              >
+                {copied ? <IconCheck /> : <IconCopy />}
+                <span>{copied ? 'Copied' : 'Copy'}</span>
+              </button>
+            )}
             {section === SECTIONS[0] && r.downloadId && (
               <button
                 type="button"
@@ -342,6 +387,16 @@ export function ResponsePanel({ requestId }: Props) {
                       : ui.response.saveFile}
               </button>
             )}
+            <button
+              type="button"
+              className={`response__tool-button${explorerOpen ? ' is-active' : ''}`}
+              onClick={() => setExplorerOpen((open) => !open)}
+              aria-pressed={explorerOpen}
+              title={explorerOpen ? 'Hide response explorer' : 'Show response explorer'}
+            >
+              <IconChevRight />
+              <span>Explorer</span>
+            </button>
           </div>
           {section === SECTIONS[0] &&
             (view === VIEW_TABS[1] ? (
@@ -391,7 +446,7 @@ export function ResponsePanel({ requestId }: Props) {
           {section === SECTIONS[2] && <HeadersList headers={r.headers} />}
           {section === SECTIONS[1] && <CookiesList headers={r.headers} />}
         </div>
-        <ResponseExplorer json={json} />
+        {explorerOpen && <ResponseExplorer json={json} />}
       </div>
     </section>
   )
@@ -413,7 +468,10 @@ function HeadersList({ headers }: { headers: Record<string, string> }) {
 
 function CookiesList({ headers }: { headers: Record<string, string> }) {
   const raw = headers['set-cookie']
-  const rows = raw ? raw.split(',').map((c) => c.trim()) : ['session=abcd1234; Path=/; HttpOnly', 'csrf=xyz; Path=/; Secure']
+  const rows = raw ? [raw] : []
+  if (rows.length === 0) {
+    return <div className="response__section-empty">No cookies were returned.</div>
+  }
   return (
     <ul className="response__cookies-list">
       {rows.map((c, i) => (
@@ -518,7 +576,35 @@ function truncate(s: string): string {
   return s.length > 36 ? s.slice(0, 33) + '…' : s
 }
 
+function filterJsonTree(value: unknown, query: string): unknown | undefined {
+  if (value === null || typeof value !== 'object') {
+    return String(value).toLowerCase().includes(query) ? value : undefined
+  }
+  if (Array.isArray(value)) {
+    const matches = value
+      .map((item) => filterJsonTree(item, query))
+      .filter((item) => item !== undefined)
+    return matches.length > 0 ? matches : undefined
+  }
+  const matches: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (key.toLowerCase().includes(query)) {
+      matches[key] = child
+      continue
+    }
+    const filtered = filterJsonTree(child, query)
+    if (filtered !== undefined) matches[key] = filtered
+  }
+  return Object.keys(matches).length > 0 ? matches : undefined
+}
+
 function ResponseExplorer({ json }: { json: unknown }) {
+  const [query, setQuery] = useState('')
+  const filteredJson = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    return normalized && json !== undefined ? filterJsonTree(json, normalized) : json
+  }, [json, query])
+
   return (
     <aside className="explorer">
       <div className="explorer__head">
@@ -527,17 +613,24 @@ function ResponseExplorer({ json }: { json: unknown }) {
       </div>
       <div className="explorer__search">
         <IconSearch width={16} height={16} />
-        <input placeholder={ui.response.searchResponse} spellCheck={false} />
+        <input
+          placeholder={ui.response.searchResponse}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          spellCheck={false}
+        />
       </div>
       <div className="explorer__tree">
         {json === undefined ? (
           <div className="dim" style={{ padding: 8 }}>{ui.response.notJson}</div>
-        ) : Array.isArray(json) || typeof json === 'object' ? (
-          Object.entries(json as Record<string, unknown>).map(([k, v]) => (
+        ) : filteredJson === undefined ? (
+          <div className="explorer__empty-search">No matching fields</div>
+        ) : Array.isArray(filteredJson) || typeof filteredJson === 'object' ? (
+          Object.entries(filteredJson as Record<string, unknown>).map(([k, v]) => (
             <ExplorerNode key={k} name={k} value={v} depth={0} />
           ))
         ) : (
-          <ExplorerNode name={ui.response.explorerValueKey} value={json} depth={0} />
+          <ExplorerNode name={ui.response.explorerValueKey} value={filteredJson} depth={0} />
         )}
       </div>
     </aside>

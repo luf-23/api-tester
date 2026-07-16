@@ -222,3 +222,23 @@ export const IconKey = (p: IconProps) => (
     <path d="m17 5 3 3M15 7l3 3" />
   </svg>
 )
+export const IconClock = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </svg>
+)
+export const IconRouting = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="4" r="2" />
+    <circle cx="5" cy="19" r="2" />
+    <circle cx="19" cy="19" r="2" />
+    <path d="M12 6v5M5 17v-3a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v3" />
+  </svg>
+)
+export const IconShield = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M12 3 5 6v5c0 4.7 2.8 8.1 7 10 4.2-1.9 7-5.3 7-10V6z" />
+    <path d="m9 12 2 2 4-4" />
+  </svg>
+)

@@ -21,6 +21,11 @@ export interface StreamHandlers {
   onChunk: (text: string) => void
 }
 
+export interface SendRequestOptions {
+  /** Resolve the operating system proxy for a URL. `null` means connect directly. */
+  resolveSystemProxy?: (url: string) => Promise<string | null>
+}
+
 function buildUrlWithParams(baseUrl: string, params: RequestDraft['params']): string {
   const u = new URL(baseUrl)
   for (const p of params) {
@@ -41,7 +46,36 @@ type BuildConfigResult =
   | { ok: false; result: SendResult }
   | { ok: true; config: AxiosRequestConfig }
 
-function buildAxiosConfig(draft: RequestDraft): BuildConfigResult {
+function axiosProxyFromUrl(value: string): NonNullable<AxiosRequestConfig['proxy']> {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error('Invalid proxy URL. Use http://host:port or https://host:port')
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('Unsupported proxy protocol. Use http:// or https://')
+  }
+  if (!url.hostname) throw new Error('Proxy URL must include a host')
+
+  const proxy: NonNullable<AxiosRequestConfig['proxy']> = {
+    protocol: url.protocol.slice(0, -1),
+    host: url.hostname,
+    port: url.port ? Number.parseInt(url.port, 10) : url.protocol === 'https:' ? 443 : 80,
+  }
+  if (url.username || url.password) {
+    proxy.auth = {
+      username: decodeURIComponent(url.username),
+      password: decodeURIComponent(url.password),
+    }
+  }
+  return proxy
+}
+
+async function buildAxiosConfig(
+  draft: RequestDraft,
+  options: SendRequestOptions
+): Promise<BuildConfigResult> {
   const url = buildUrlWithParams(draft.url, draft.params)
   const headers: Record<string, string> = {}
   for (const h of draft.headers) {
@@ -58,6 +92,42 @@ function buildAxiosConfig(draft: RequestDraft): BuildConfigResult {
     maxRedirects: send.maxRedirects,
     timeout: send.timeoutMs === 0 ? 0 : send.timeoutMs,
     transformResponse: [(data) => data],
+  }
+  const proxyMode = send.proxyMode ?? 'system'
+  if (proxyMode === 'direct') {
+    config.proxy = false
+  } else if (proxyMode === 'custom') {
+    const proxyUrl = send.proxyUrl?.trim() ?? ''
+    if (!proxyUrl) {
+      return {
+        ok: false,
+        result: { response: emptyResponse(0), error: 'Custom proxy URL is required' },
+      }
+    }
+    try {
+      config.proxy = axiosProxyFromUrl(proxyUrl)
+    } catch (e) {
+      return {
+        ok: false,
+        result: {
+          response: emptyResponse(0),
+          error: e instanceof Error ? e.message : String(e),
+        },
+      }
+    }
+  } else if (options.resolveSystemProxy) {
+    try {
+      const proxyUrl = await options.resolveSystemProxy(url)
+      config.proxy = proxyUrl ? axiosProxyFromUrl(proxyUrl) : false
+    } catch (e) {
+      return {
+        ok: false,
+        result: {
+          response: emptyResponse(0),
+          error: e instanceof Error ? e.message : String(e),
+        },
+      }
+    }
   }
   if (!send.validateTls) {
     config.httpsAgent = new https.Agent({ rejectUnauthorized: false })
@@ -138,8 +208,11 @@ function buildAxiosConfig(draft: RequestDraft): BuildConfigResult {
   return { ok: true, config }
 }
 
-export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
-  const built = buildAxiosConfig(draft)
+export async function sendRequest(
+  draft: RequestDraft,
+  options: SendRequestOptions = {}
+): Promise<SendResult> {
+  const built = await buildAxiosConfig(draft, options)
   if (!built.ok) return built.result
 
   const started = Date.now()
@@ -180,9 +253,10 @@ export async function sendRequest(draft: RequestDraft): Promise<SendResult> {
 
 export async function sendRequestStream(
   draft: RequestDraft,
-  handlers: StreamHandlers
+  handlers: StreamHandlers,
+  options: SendRequestOptions = {}
 ): Promise<SendResult> {
-  const built = buildAxiosConfig(draft)
+  const built = await buildAxiosConfig(draft, options)
   if (!built.ok) return built.result
 
   const started = Date.now()

@@ -78,6 +78,10 @@ interface ToastState {
 
 export function CollectionsPanel() {
   const collections = useWorkspaceStore((s) => s.collections)
+  const totalRequests = useMemo(
+    () => collections.reduce((total, collection) => total + countRequests(collection.root), 0),
+    [collections]
+  )
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
@@ -292,10 +296,22 @@ export function CollectionsPanel() {
 
   return (
     <div className="collections">
+      <div className="collections__brand">
+        <div className="collections__brand-mark" aria-hidden>
+          J
+        </div>
+        <div className="collections__brand-copy">
+          <strong>JadeAPI</strong>
+          <span>Local API workspace</span>
+        </div>
+        <span className="collections__local-dot" title={ui.collections.badgeLocal} />
+      </div>
       <div className="collections__top">
         <div className="collections__identity">
           <span className="collections__identity-title">{ui.collections.title}</span>
-          <span className="collections__identity-badge">{ui.collections.badgeLocal}</span>
+          <span className="collections__identity-badge">
+            {totalRequests} request{totalRequests === 1 ? '' : 's'}
+          </span>
         </div>
         <div className="search-row">
           <div className="search-input">
@@ -587,7 +603,7 @@ function FolderRow({
             onCancel={() => setEditingId(null)}
           />
         ) : (
-          <span className="tree-row__name">{node.name}</span>
+          <span className="tree-row__name" title={node.name}>{node.name}</span>
         )}
         <span className="tree-row__count">
           {total === 1 ? ui.collections.requestsCountOne : ui.collections.requestsCountMany(total)}
@@ -758,7 +774,7 @@ function RequestRow({
           onCancel={() => setEditingId(null)}
         />
       ) : (
-        <span className="tree-row__name" title={request.url}>
+        <span className="tree-row__name" title={`${request.name}\n${request.url}`}>
           {request.name}
         </span>
       )}

@@ -11,6 +11,8 @@ export type HttpMethod =
 
 export type BodyMode = 'none' | 'json' | 'text' | 'form-urlencoded' | 'form-data'
 
+export type ProxyMode = 'direct' | 'system' | 'custom'
+
 export interface KeyValue {
   id: string
   key: string
@@ -46,6 +48,10 @@ export interface RequestSendSettings {
    * Set to `false` in Settings to buffer the full body before updating the UI.
    */
   streamResponse?: boolean
+  /** Proxy selection. Omitted on older saved requests and treated as `system`. */
+  proxyMode?: ProxyMode
+  /** HTTP(S) proxy URL used when `proxyMode` is `custom`. */
+  proxyUrl?: string
 }
 
 export function defaultSendSettings(): RequestSendSettings {
@@ -54,6 +60,8 @@ export function defaultSendSettings(): RequestSendSettings {
     maxRedirects: 5,
     validateTls: true,
     streamResponse: true,
+    proxyMode: 'system',
+    proxyUrl: '',
   }
 }
 

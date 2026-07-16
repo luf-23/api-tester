@@ -22,7 +22,7 @@ import { JsonBodyEditor } from './JsonBodyEditor'
 import { FormDataFieldsEditor } from './FormDataFieldsEditor'
 import { KeyValueEditor } from './KeyValueEditor'
 import { MethodPick } from './MethodPick'
-import { IconSave, IconSend } from './icons'
+import { IconClock, IconRouting, IconSave, IconSend, IconShield } from './icons'
 import { LoadingButton } from './ui/LoadingButton'
 
 const SUBTABS = [
@@ -83,6 +83,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   const subtabsScrollRef = useRef<HTMLElement>(null)
   useWheelHorizontalScroll(subtabsScrollRef)
   const collections = useWorkspaceStore((s) => s.collections)
+  const dirty = useWorkspaceStore((s) => Boolean(s.dirtyRequestIds[request.id]))
   const update = useWorkspaceStore((s) => s.updateRequest)
   const setKv = useWorkspaceStore((s) => s.setKv)
   const setResponse = useTabsStore((s) => s.setResponse)
@@ -94,6 +95,9 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   const sending = Boolean(responseState?.loading)
 
   const enabledHeaders = request.headers.filter((h) => h.enabled && h.key)
+  const enabledParams = request.params.filter((p) => p.enabled && p.key)
+  const enabledBodyFields = request.bodyFields.filter((f) => f.enabled && f.key)
+  const hasUrl = request.url.trim().length > 0
 
   const breadcrumbParts = useMemo(
     () => breadcrumbForRequest(collections, request),
@@ -127,6 +131,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
       : 'Ctrl'
 
   const onSend = useCallback(async () => {
+    if (!request.url.trim()) return
     const sendOpts = { ...defaultSendSettings(), ...request.sendSettings }
     const wantStream = sendOpts.streamResponse !== false
     const canStream = typeof window.apiTester?.sendHttpStream === 'function'
@@ -246,16 +251,22 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   return (
     <section className="request">
       <div className="request__header">
-        <div className="breadcrumb">
-          {breadcrumbParts.flatMap((part, i) => {
-            const node =
-              i === breadcrumbParts.length - 1 ? (
-                <b key={`bc-${i}`}>{part}</b>
-              ) : (
-                <span key={`bc-${i}`}>{part}</span>
-              )
-            return i === 0 ? [node] : [<span key={`bc-sep-${i}`}>/</span>, node]
-          })}
+        <div className="request__identity">
+          <div className="breadcrumb">
+            {breadcrumbParts.flatMap((part, i) => {
+              const node =
+                i === breadcrumbParts.length - 1 ? (
+                  <b key={`bc-${i}`}>{part}</b>
+                ) : (
+                  <span key={`bc-${i}`}>{part}</span>
+                )
+              return i === 0 ? [node] : [<span key={`bc-sep-${i}`}>/</span>, node]
+            })}
+          </div>
+          <span className={`request__save-state${dirty ? ' is-dirty' : ''}`}>
+            <span aria-hidden />
+            {dirty ? 'Unsaved changes' : 'Saved locally'}
+          </span>
         </div>
         <div className="header-actions">
           <LoadingButton
@@ -283,10 +294,12 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           onChange={(e) => update(request.id, { url: e.target.value })}
           placeholder={ui.request.urlPlaceholder}
           spellCheck={false}
+          aria-invalid={!hasUrl}
         />
         <LoadingButton
           className="btn btn--primary url-bar__send"
           loading={sending}
+          disabled={!hasUrl}
           title={ui.request.sendTitle(sendModKey)}
           loadingContent={
             <>
@@ -301,7 +314,14 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
 
       <nav ref={subtabsScrollRef} className="subtabs">
         {SUBTABS.map((tab) => {
-          const count = tab.id === 'headers' ? enabledHeaders.length : 0
+          const count =
+            tab.id === 'params'
+              ? enabledParams.length
+              : tab.id === 'headers'
+                ? enabledHeaders.length
+                : tab.id === 'body' && request.bodyMode !== 'none'
+                  ? Math.max(enabledBodyFields.length, 1)
+                  : 0
           return (
             <button
               key={tab.id}
@@ -315,7 +335,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           )
         })}
         <div className="subtabs__spacer" />
-        <button type="button" className="subtabs__link">{ui.request.cookiesLink}</button>
+        <span className="subtabs__shortcut">{sendModKey}+Enter to send</span>
       </nav>
 
       <div className={`subpanel${active === 'body' ? ' subpanel--body' : ''}`}>
@@ -476,66 +496,128 @@ function RequestSendSettingsPanel({ request }: { request: RequestWithTests }) {
 
   return (
     <div className="request-settings">
-      <h4 className="request-settings__title">{ui.request.settingsTitle}</h4>
-      <p className="request-settings__intro dim">{ui.request.settingsSendIntro}</p>
+      <div className="request-settings__layout">
+        <section className="request-settings__section">
+          <div className="request-settings__section-head">
+            <IconClock aria-hidden />
+            <h5>Request limits</h5>
+          </div>
+          <div className="request-settings__compact-grid">
+            <label className="request-settings__field">
+              <span className="request-settings__label">{ui.request.settingsTimeout}</span>
+              <div className="request-settings__number-wrap">
+                <input
+                  type="number"
+                  min={0}
+                  max={3600}
+                  step={1}
+                  value={timeoutSeconds}
+                  onChange={(e) => {
+                    const sec = Number.parseInt(e.target.value, 10)
+                    const v = Number.isFinite(sec) ? Math.max(0, Math.min(3600, sec)) : 0
+                    patch({ timeoutMs: v * 1000 })
+                  }}
+                  className="request-settings__input"
+                />
+                <span>sec</span>
+              </div>
+              <span className="request-settings__hint muted">{ui.request.settingsTimeoutHint}</span>
+            </label>
 
-      <div className="request-settings__grid">
-        <label className="request-settings__field">
-          <span className="request-settings__label">{ui.request.settingsTimeout}</span>
-          <input
-            type="number"
-            min={0}
-            max={3600}
-            step={1}
-            value={timeoutSeconds}
-            onChange={(e) => {
-              const sec = Number.parseInt(e.target.value, 10)
-              const v = Number.isFinite(sec) ? Math.max(0, Math.min(3600, sec)) : 0
-              patch({ timeoutMs: v * 1000 })
-            }}
-            className="request-settings__input"
-          />
-          <span className="request-settings__hint muted">{ui.request.settingsTimeoutHint}</span>
-        </label>
+            <label className="request-settings__field">
+              <span className="request-settings__label">{ui.request.settingsRedirects}</span>
+              <div className="request-settings__number-wrap">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={merged.maxRedirects}
+                  onChange={(e) => {
+                    const n = Number.parseInt(e.target.value, 10)
+                    patch({
+                      maxRedirects: Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0,
+                    })
+                  }}
+                  className="request-settings__input"
+                />
+                <span>max</span>
+              </div>
+              <span className="request-settings__hint muted">{ui.request.settingsRedirectsHint}</span>
+            </label>
+          </div>
+        </section>
 
-        <label className="request-settings__field">
-          <span className="request-settings__label">{ui.request.settingsRedirects}</span>
-          <input
-            type="number"
-            min={0}
-            max={100}
-            step={1}
-            value={merged.maxRedirects}
-            onChange={(e) => {
-              const n = Number.parseInt(e.target.value, 10)
-              patch({
-                maxRedirects: Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0,
-              })
-            }}
-            className="request-settings__input"
-          />
-          <span className="request-settings__hint muted">{ui.request.settingsRedirectsHint}</span>
-        </label>
+        <section className="request-settings__section">
+          <div className="request-settings__section-head">
+            <IconRouting aria-hidden />
+            <h5>Proxy routing</h5>
+          </div>
+          <label className="request-settings__field">
+            <span className="request-settings__label">{ui.request.settingsProxy}</span>
+            <select
+              value={merged.proxyMode ?? 'system'}
+              onChange={(e) =>
+                patch({ proxyMode: e.target.value as 'direct' | 'system' | 'custom' })
+              }
+              className="request-settings__input request-settings__input--wide"
+            >
+              <option value="system">{ui.request.settingsProxySystem}</option>
+              <option value="custom">{ui.request.settingsProxyCustom}</option>
+              <option value="direct">{ui.request.settingsProxyDirect}</option>
+            </select>
+            <span className="request-settings__hint muted">{ui.request.settingsProxyHint}</span>
+          </label>
 
-        <label className="request-settings__field request-settings__field--check">
-          <input
-            type="checkbox"
-            checked={merged.validateTls}
-            onChange={(e) => patch({ validateTls: e.target.checked })}
-          />
-          <span className="request-settings__check-label">{ui.request.settingsTls}</span>
-        </label>
-        <p className="request-settings__hint muted request-settings__tls-hint">{ui.request.settingsTlsHint}</p>
+          {(merged.proxyMode ?? 'system') === 'custom' && (
+            <label className="request-settings__field request-settings__proxy-url">
+              <span className="request-settings__label">{ui.request.settingsProxyUrl}</span>
+              <input
+                type="text"
+                value={merged.proxyUrl ?? ''}
+                onChange={(e) => patch({ proxyUrl: e.target.value })}
+                placeholder="http://127.0.0.1:7890"
+                className="request-settings__input request-settings__input--wide"
+                spellCheck={false}
+              />
+              <span className="request-settings__hint muted">{ui.request.settingsProxyUrlHint}</span>
+            </label>
+          )}
+        </section>
 
-        <label className="request-settings__field request-settings__field--check">
-          <input
-            type="checkbox"
-            checked={merged.streamResponse === false}
-            onChange={(e) => patch({ streamResponse: e.target.checked ? false : true })}
-          />
-          <span className="request-settings__check-label">{ui.request.settingsBufferFullResponse}</span>
-        </label>
-        <p className="request-settings__hint muted">{ui.request.settingsBufferFullResponseHint}</p>
+        <section className="request-settings__section">
+          <div className="request-settings__section-head">
+            <IconShield aria-hidden />
+            <h5>Security &amp; response</h5>
+          </div>
+          <div className="request-settings__toggles">
+            <label className="request-settings__toggle">
+              <span className="request-settings__toggle-copy">
+                <strong>{ui.request.settingsTls}</strong>
+                <small>{ui.request.settingsTlsHint}</small>
+              </span>
+              <input
+                type="checkbox"
+                checked={merged.validateTls}
+                onChange={(e) => patch({ validateTls: e.target.checked })}
+              />
+              <span className="request-settings__switch" aria-hidden />
+            </label>
+
+            <label className="request-settings__toggle">
+              <span className="request-settings__toggle-copy">
+                <strong>{ui.request.settingsBufferFullResponse}</strong>
+                <small>{ui.request.settingsBufferFullResponseHint}</small>
+              </span>
+              <input
+                type="checkbox"
+                checked={merged.streamResponse === false}
+                onChange={(e) => patch({ streamResponse: e.target.checked ? false : true })}
+              />
+              <span className="request-settings__switch" aria-hidden />
+            </label>
+          </div>
+        </section>
       </div>
     </div>
   )

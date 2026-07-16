@@ -19,6 +19,8 @@ export const requestSendSettingsSchema = z.object({
   maxRedirects: z.number().int().min(0).max(100),
   validateTls: z.boolean(),
   streamResponse: z.boolean().optional(),
+  proxyMode: z.enum(['direct', 'system', 'custom']).optional(),
+  proxyUrl: z.string().max(2048).optional(),
 })
 
 export const requestDraftSchema = z

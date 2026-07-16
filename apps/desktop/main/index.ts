@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron'
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -65,6 +65,27 @@ const mockCtl = new MockServerController()
 const RESPONSE_DOWNLOAD_TTL_MS = 30 * 60_000
 const RESPONSE_DOWNLOAD_MAX_ENTRIES = 20
 const responseDownloads = new Map<string, { bytes: Uint8Array; createdAt: number }>()
+
+async function resolveSystemProxy(url: string): Promise<string | null> {
+  const decision = await session.defaultSession.resolveProxy(url)
+  let unsupportedSocks = false
+  for (const entry of decision.split(';')) {
+    const [kindRaw, endpoint] = entry.trim().split(/\s+/, 2)
+    const kind = kindRaw.toUpperCase()
+    if (kind === 'DIRECT') return null
+    if ((kind === 'PROXY' || kind === 'HTTP') && endpoint) return `http://${endpoint}`
+    if (kind === 'HTTPS' && endpoint) return `https://${endpoint}`
+    if (kind.startsWith('SOCKS')) {
+      unsupportedSocks = true
+    }
+  }
+  if (unsupportedSocks) {
+    throw new Error('The system selected a SOCKS-only proxy, which is not supported yet')
+  }
+  throw new Error(`Could not resolve a supported system proxy (${decision || 'empty result'})`)
+}
+
+const desktopSendOptions = { resolveSystemProxy }
 
 function exposeResponseDownload(result: Awaited<ReturnType<typeof sendRequest>>) {
   const { rawBody, ...rendererResult } = result
@@ -181,7 +202,7 @@ app.whenReady().then(() => {
         error: prep.error,
       }
     }
-    const result = await sendRequest(prep.request)
+    const result = await sendRequest(prep.request, desktopSendOptions)
     return exposeResponseDownload(result)
   })
 
@@ -197,20 +218,24 @@ app.whenReady().then(() => {
       return { ok: false as const, error: prep.error }
     }
 
-    const result = await sendRequestStream(prep.request, {
-      onHeaders: (info) =>
-        wc.send(httpStreamPushChannel, {
-          streamSessionId,
-          phase: 'headers',
-          ...info,
-        }),
-      onChunk: (text) =>
-        wc.send(httpStreamPushChannel, {
-          streamSessionId,
-          phase: 'chunk',
-          text,
-        }),
-    })
+    const result = await sendRequestStream(
+      prep.request,
+      {
+        onHeaders: (info) =>
+          wc.send(httpStreamPushChannel, {
+            streamSessionId,
+            phase: 'headers',
+            ...info,
+          }),
+        onChunk: (text) =>
+          wc.send(httpStreamPushChannel, {
+            streamSessionId,
+            phase: 'chunk',
+            text,
+          }),
+      },
+      desktopSendOptions
+    )
 
     if (result.error) {
       return { ok: false as const, error: result.error }
@@ -327,7 +352,7 @@ app.whenReady().then(() => {
         stopOnFailure,
         prepareRequest: (req, vars) => resolveRequestForSend(req, vars),
         execute: async (req: RequestWithTests) => {
-          const out = await sendRequest(req)
+          const out = await sendRequest(req, desktopSendOptions)
           if (out.error) {
             return {
               status: 0,

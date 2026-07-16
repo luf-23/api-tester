@@ -17,6 +17,7 @@ import { useWorkspaceStore } from './store/workspace'
 import { useThemeStore } from './store/theme'
 import { ui } from './locale/ui'
 import { BootScreen } from './components/ui/BootScreen'
+import { IconFilePlus, IconFolderPlus, IconSend } from './components/icons'
 
 const LS_SIDEBAR = 'api-tester.sidebarW'
 const LS_SPLIT = 'api-tester.editorSplit'
@@ -208,6 +209,22 @@ export default function App() {
     document.addEventListener('mouseup', onUp)
   }, [])
 
+  const createFirstRequest = useCallback(() => {
+    const workspace = useWorkspaceStore.getState()
+    let collection = workspace.collections[0]
+    if (!collection) {
+      workspace.addCollection('My Collection')
+      collection = useWorkspaceStore.getState().collections[0]
+    }
+    if (!collection) return
+    const requestId = useWorkspaceStore.getState().addRequest(collection.root.id)
+    useTabsStore.getState().open(requestId)
+  }, [])
+
+  const createCollection = useCallback(() => {
+    useWorkspaceStore.getState().addCollection('New Collection')
+  }, [])
+
   if (!boot.ui) {
     return <BootScreen message={ui.app.loadingWorkspace} />
   }
@@ -252,8 +269,24 @@ export default function App() {
             </div>
           ) : (
             <div className="app__empty">
-              <p className="app__empty-title">{ui.app.emptyTitle}</p>
+              <div className="app__empty-illustration" aria-hidden>
+                <IconSend />
+              </div>
+              <p className="app__empty-eyebrow">READY TO TEST</p>
+              <h1 className="app__empty-title">{ui.app.emptyTitle}</h1>
               <p className="app__empty-hint">{ui.app.emptyHint}</p>
+              <div className="app__empty-actions">
+                <button type="button" className="btn btn--primary" onClick={createFirstRequest}>
+                  <IconFilePlus /> New request
+                </button>
+                <button type="button" className="btn" onClick={createCollection}>
+                  <IconFolderPlus /> New collection
+                </button>
+              </div>
+              <div className="app__empty-shortcut">
+                <kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd>
+                <span>to send a request</span>
+              </div>
             </div>
           )}
         </main>

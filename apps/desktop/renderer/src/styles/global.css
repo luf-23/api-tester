@@ -1825,6 +1825,10 @@ body.is-resizing-row .resize-handle--row::after {
   font-family: var(--font-code);
   font-size: var(--fs-small);
 }
+.request-settings__input--wide {
+  width: 100%;
+  max-width: 440px;
+}
 .request-settings__hint {
   font-size: 11px;
   line-height: 1.45;
