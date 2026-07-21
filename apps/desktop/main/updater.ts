@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import electronUpdater from 'electron-updater'
 import path from 'node:path'
 import { ipcChannels, updaterPushChannel, type UpdaterPushPayload } from '@api-tester/shared'
+import { formatReleaseNotes } from './releaseNotes'
 
 const { autoUpdater } = electronUpdater
 
@@ -18,25 +19,6 @@ export function setupAutoUpdater(
     } catch {
       /* window destroyed */
     }
-  }
-
-  function formatReleaseNotes(raw: unknown): string | undefined {
-    if (raw == null) return undefined
-    if (typeof raw === 'string') return raw.trim() || undefined
-    if (Array.isArray(raw)) {
-      const lines = raw
-        .map((x) => {
-          if (typeof x === 'object' && x !== null && 'note' in x) {
-            const n = (x as { note?: string }).note
-            return typeof n === 'string' ? n : ''
-          }
-          return ''
-        })
-        .filter(Boolean)
-      const s = lines.join('\n').trim()
-      return s || undefined
-    }
-    return undefined
   }
 
   if (!app.isPackaged) {

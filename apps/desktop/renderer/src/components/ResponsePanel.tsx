@@ -4,6 +4,7 @@ import { ui } from '../locale/ui'
 import { useTabsStore } from '../store/tabs'
 import { formatBytes, formatDuration, safeParseJson, statusClass, tryFormatJson } from '../lib/format'
 import { isBinaryResponse, suggestedResponseFileName } from '../lib/responseDownload'
+import { describeRequestError } from '../lib/requestError'
 import { JsonView } from './JsonView'
 import {
   IconCheck,
@@ -148,6 +149,13 @@ export function ResponsePanel({ requestId }: Props) {
   const prevRequestId = useRef(requestId)
 
   const response = state?.response
+  const requestError = useMemo(() => {
+    if (state?.error) return describeRequestError(state.error)
+    if (!state?.loading && response?.status === 0) {
+      return describeRequestError('No HTTP response was received')
+    }
+    return undefined
+  }, [state?.error, state?.loading, response?.status])
 
   useEffect(() => {
     if (state?.loading) return
@@ -248,15 +256,15 @@ export function ResponsePanel({ requestId }: Props) {
     )
   }
 
-  /** sendRequest still returns an empty HttpResponseView on failure; error carries the real reason. */
-  if (state?.error) {
+  /** A status of 0 is never an HTTP response; keep stale/legacy clients out of the empty JSON view. */
+  if (requestError) {
     return (
       <section className="response response--state">
         <div className="response-state response-state--error">
           <div className="response-state__icon" aria-hidden>!</div>
           <div>
-            <strong>{ui.response.errorSending}</strong>
-            <p>{state.error}</p>
+            <strong>{requestError.title}</strong>
+            <p>{requestError.message}</p>
           </div>
         </div>
       </section>
