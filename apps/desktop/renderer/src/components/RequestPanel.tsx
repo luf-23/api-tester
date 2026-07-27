@@ -132,6 +132,9 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
 
   const onSend = useCallback(async () => {
     if (!request.url.trim()) return
+    // Sending is also an explicit save point: persist this request without
+    // blocking the network operation or clearing dirty state from other tabs.
+    void onSaveNow()
     const sendOpts = { ...defaultSendSettings(), ...request.sendSettings }
     const wantStream = sendOpts.streamResponse !== false
     const canStream = typeof window.apiTester?.sendHttpStream === 'function'
@@ -229,7 +232,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
         receivedAt: Date.now(),
       })
     }
-  }, [request, setResponse])
+  }, [request, setResponse, onSaveNow])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

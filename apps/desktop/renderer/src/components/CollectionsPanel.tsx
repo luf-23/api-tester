@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from 'react'
+import { createPortal } from 'react-dom'
 import type {
   Collection,
   FolderNode,
@@ -301,8 +302,8 @@ export function CollectionsPanel() {
           J
         </div>
         <div className="collections__brand-copy">
-          <strong>JadeAPI</strong>
-          <span>Local API workspace</span>
+          <strong>Jade API</strong>
+          <span>Local workspace</span>
         </div>
         <span className="collections__local-dot" title={ui.collections.badgeLocal} />
       </div>
@@ -905,7 +906,7 @@ function DeleteConfirmDialog({
 
 function ContextMenu({
   state,
-  onClose: _onClose,
+  onClose,
   onAction,
 }: {
   state: ContextMenuState
@@ -921,40 +922,73 @@ function ContextMenu({
   ) => void
 }) {
   const isFolderLike = state.kind !== 'request'
-  return (
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState({ left: state.x, top: state.y })
+
+  useLayoutEffect(() => {
+    const element = menuRef.current
+    if (!element) return
+    const viewportGap = 8
+    const rect = element.getBoundingClientRect()
+    setPosition({
+      left: Math.max(
+        viewportGap,
+        Math.min(state.x, window.innerWidth - rect.width - viewportGap)
+      ),
+      top: Math.max(
+        viewportGap,
+        Math.min(state.y, window.innerHeight - rect.height - viewportGap)
+      ),
+    })
+  }, [state.x, state.y, state.kind])
+
+  return createPortal(
     <div
-      className="ctx-menu"
-      style={{ top: state.y, left: state.x }}
-      onClick={(e) => e.stopPropagation()}
+      className="ctx-menu-layer"
+      onPointerDown={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onClose()
+      }}
     >
-      {isFolderLike && (
-        <>
-          <button onClick={() => onAction('add-request')}>
-            <IconFilePlus width={16} height={16} /> {ui.collections.ctxAddRequest}
-          </button>
-          <button onClick={() => onAction('add-folder')}>
-            <IconFolderPlus width={16} height={16} /> {ui.collections.ctxAddFolder}
-          </button>
-          <button onClick={() => onAction('run')}>
-            <IconRunner width={16} height={16} /> {ui.collections.ctxRunFolder}
-          </button>
-          <div className="ctx-menu__sep" />
-        </>
-      )}
-      {!isFolderLike && (
-        <>
-          <button onClick={() => onAction('duplicate')}>
-            <IconCopy width={16} height={16} /> {ui.collections.ctxDuplicate}
-          </button>
-          <div className="ctx-menu__sep" />
-        </>
-      )}
-      <button onClick={() => onAction('rename')}>
-        <IconEdit width={16} height={16} /> {ui.collections.ctxRename}
-      </button>
-      <button className="is-danger" onClick={() => onAction('delete')}>
-        <IconTrash width={16} height={16} /> {ui.collections.ctxDelete}
-      </button>
-    </div>
+      <div
+        ref={menuRef}
+        className="ctx-menu"
+        role="menu"
+        style={position}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {isFolderLike && (
+          <>
+            <button role="menuitem" onClick={() => onAction('add-request')}>
+              <IconFilePlus width={16} height={16} /> {ui.collections.ctxAddRequest}
+            </button>
+            <button role="menuitem" onClick={() => onAction('add-folder')}>
+              <IconFolderPlus width={16} height={16} /> {ui.collections.ctxAddFolder}
+            </button>
+            <button role="menuitem" onClick={() => onAction('run')}>
+              <IconRunner width={16} height={16} /> {ui.collections.ctxRunFolder}
+            </button>
+            <div className="ctx-menu__sep" />
+          </>
+        )}
+        {!isFolderLike && (
+          <>
+            <button role="menuitem" onClick={() => onAction('duplicate')}>
+              <IconCopy width={16} height={16} /> {ui.collections.ctxDuplicate}
+            </button>
+            <div className="ctx-menu__sep" />
+          </>
+        )}
+        <button role="menuitem" onClick={() => onAction('rename')}>
+          <IconEdit width={16} height={16} /> {ui.collections.ctxRename}
+        </button>
+        <button role="menuitem" className="is-danger" onClick={() => onAction('delete')}>
+          <IconTrash width={16} height={16} /> {ui.collections.ctxDelete}
+        </button>
+      </div>
+    </div>,
+    document.body
   )
 }
