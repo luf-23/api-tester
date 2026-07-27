@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 
 type Props = {
@@ -16,7 +17,7 @@ export function AnimatedOverlay({
 }: Props) {
   const reduceMotion = useReducedMotion()
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -39,6 +40,7 @@ export function AnimatedOverlay({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }

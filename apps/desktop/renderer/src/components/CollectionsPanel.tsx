@@ -77,6 +77,43 @@ interface ToastState {
   tone: 'ok' | 'err'
 }
 
+interface PendingMoveState {
+  sourceId: string
+  targetId: string
+  position: DropPosition
+  requestName: string
+  targetLabel: string
+}
+
+function describeMoveTarget(
+  collections: Collection[],
+  targetId: string,
+  position: DropPosition
+): string {
+  const visit = (folder: FolderNode, path: string[]): string | undefined => {
+    if (folder.id === targetId) return path.join(' / ')
+    for (const child of folder.children) {
+      if (child.id === targetId) {
+        if (!isRequest(child)) return [...path, child.name].join(' / ')
+        const suffix =
+          position === 'before' ? ' 之前' : position === 'after' ? ' 之后' : ''
+        return `${path.join(' / ')} / ${child.name}${suffix}`
+      }
+      if (!isRequest(child)) {
+        const hit = visit(child, [...path, child.name])
+        if (hit) return hit
+      }
+    }
+    return undefined
+  }
+
+  for (const collection of collections) {
+    const hit = visit(collection.root, [collection.name])
+    if (hit) return hit
+  }
+  return '目标位置'
+}
+
 export function CollectionsPanel() {
   const collections = useWorkspaceStore((s) => s.collections)
   const totalRequests = useMemo(
@@ -88,6 +125,7 @@ export function CollectionsPanel() {
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [pendingMove, setPendingMove] = useState<PendingMoveState | null>(null)
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [drag, setDrag] = useState<{ id: string; over?: string; pos?: DropPosition } | null>(
@@ -101,6 +139,7 @@ export function CollectionsPanel() {
   const addCollection = useWorkspaceStore((s) => s.addCollection)
   const mergePostman = useWorkspaceStore((s) => s.importPostmanCollection)
   const moveNode = useWorkspaceStore((s) => s.moveNode)
+  const expandFolder = useWorkspaceStore((s) => s.expandFolder)
   const closeTab = useTabsStore((s) => s.close)
   const openTabs = useTabsStore((s) => s.openIds)
 
@@ -295,6 +334,25 @@ export function CollectionsPanel() {
       )
   }, [collections, matchesSearch, editingId])
 
+  const requestMove = useCallback(
+    (sourceId: string, targetId: string, position: DropPosition) => {
+      const request = useWorkspaceStore.getState().getRequest(sourceId)
+      if (!request) {
+        moveNode(sourceId, targetId, position)
+        if (position === 'inside') expandFolder(targetId, true)
+        return
+      }
+      setPendingMove({
+        sourceId,
+        targetId,
+        position,
+        requestName: request.name,
+        targetLabel: describeMoveTarget(collections, targetId, position),
+      })
+    },
+    [collections, expandFolder, moveNode]
+  )
+
   return (
     <div className="collections">
       <div className="collections__brand">
@@ -386,7 +444,7 @@ export function CollectionsPanel() {
             onContext={onContext}
             drag={drag}
             setDrag={setDrag}
-            onDropMove={moveNode}
+            onDropMove={requestMove}
           />
         ))}
       </div>
@@ -427,10 +485,29 @@ export function CollectionsPanel() {
         />
       )}
 
+      {pendingMove && (
+        <MoveConfirmDialog
+          requestName={pendingMove.requestName}
+          targetLabel={pendingMove.targetLabel}
+          onCancel={() => setPendingMove(null)}
+          onConfirm={() => {
+            moveNode(pendingMove.sourceId, pendingMove.targetId, pendingMove.position)
+            if (pendingMove.position === 'inside') {
+              expandFolder(pendingMove.targetId, true)
+            }
+            setPendingMove(null)
+            showToast(`已移动请求「${pendingMove.requestName}」`)
+          }}
+        />
+      )}
+
       {toast && (
-        <div className={`toast toast--${toast.tone}`} role="status" aria-live="polite">
-          {toast.msg}
-        </div>
+        createPortal(
+          <div className={`toast toast--${toast.tone}`} role="status" aria-live="polite">
+            {toast.msg}
+          </div>,
+          document.body
+        )
       )}
     </div>
   )
@@ -509,7 +586,6 @@ function FolderRow({
 }: FolderRowProps) {
   const expanded = useWorkspaceStore((s) => s.expanded[node.id] ?? false)
   const toggle = useWorkspaceStore((s) => s.toggleFolder)
-  const expandFolder = useWorkspaceStore((s) => s.expandFolder)
   const renameNode = useWorkspaceStore((s) => s.renameNode)
   const addRequest = useWorkspaceStore((s) => s.addRequest)
   const addFolder = useWorkspaceStore((s) => s.addFolder)
@@ -524,8 +600,10 @@ function FolderRow({
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const y = e.clientY - rect.top
     let pos: DropPosition = 'inside'
-    if (y < rect.height * 0.25) pos = 'before'
-    else if (y > rect.height * 0.75) pos = 'after'
+    if (!isCollectionRoot) {
+      if (y < rect.height * 0.25) pos = 'before'
+      else if (y > rect.height * 0.75) pos = 'after'
+    }
     setDrag((prev) => (prev ? { ...prev, over: node.id, pos } : prev))
   }
 
@@ -534,7 +612,6 @@ function FolderRow({
     e.stopPropagation()
     if (drag && drag.id !== node.id && drag.pos) {
       onDropMove(drag.id, node.id, drag.pos)
-      if (drag.pos === 'inside') expandFolder(node.id, true)
     }
     setDrag(null)
   }
@@ -897,6 +974,68 @@ function DeleteConfirmDialog({
             onClick={onConfirm}
           >
             {ui.collections.confirmDeleteConfirm}
+          </button>
+        </div>
+      </div>
+    </AnimatedOverlay>
+  )
+}
+
+function MoveConfirmDialog({
+  requestName,
+  targetLabel,
+  onCancel,
+  onConfirm,
+}: {
+  requestName: string
+  targetLabel: string
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const titleId = useId()
+  const descId = useId()
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel])
+  useLayoutEffect(() => {
+    cancelRef.current?.focus({ preventScroll: true })
+  }, [])
+
+  return (
+    <AnimatedOverlay open onBackdropClick={onCancel}>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        className="confirm-dialog"
+      >
+        <h2 id={titleId} className="confirm-dialog__title">
+          确认移动请求
+        </h2>
+        <p id={descId} className="confirm-dialog__body">
+          确定将请求「{requestName}」移动到「{targetLabel}」吗？
+        </p>
+        <div className="confirm-dialog__actions">
+          <button
+            ref={cancelRef}
+            type="button"
+            className="confirm-dialog__btn"
+            onClick={onCancel}
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            className="confirm-dialog__btn confirm-dialog__btn--primary"
+            onClick={onConfirm}
+          >
+            确认移动
           </button>
         </div>
       </div>

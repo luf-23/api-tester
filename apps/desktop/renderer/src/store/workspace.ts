@@ -466,41 +466,59 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set((s) => {
       if (sourceId === targetId) return s
 
-      let srcIds: string[] = []
-      for (const c of s.collections) {
-        const src = findNodeAndParent(c.root, sourceId)
-        if (src) {
-          srcIds = isRequest(src.node)
-            ? [src.node.id]
-            : collectRequestIdsInSubtree(src.node)
-          break
-        }
+      const sourceCollectionIndex = s.collections.findIndex((c) =>
+        Boolean(findNodeAndParent(c.root, sourceId))
+      )
+      const targetCollectionIndex = s.collections.findIndex((c) =>
+        Boolean(findNodeAndParent(c.root, targetId))
+      )
+      if (sourceCollectionIndex < 0 || targetCollectionIndex < 0) return s
+
+      const sourceCollection = s.collections[sourceCollectionIndex]
+      const targetCollection = s.collections[targetCollectionIndex]
+      const src = findNodeAndParent(sourceCollection.root, sourceId)
+      const tgt = findNodeAndParent(targetCollection.root, targetId)
+      if (!src || !tgt || !src.parent) return s
+      if (position === 'inside' && isRequest(tgt.node)) return s
+      if (position !== 'inside' && !tgt.parent) return s
+      // prevent moving a folder into its own descendant
+      if (
+        sourceCollectionIndex === targetCollectionIndex &&
+        !isRequest(src.node) &&
+        isAncestor(src.node, src.node.id, targetId)
+      ) {
+        return s
       }
 
-      const collections = s.collections.map((c) => {
-        const src = findNodeAndParent(c.root, sourceId)
-        const tgt = findNodeAndParent(c.root, targetId)
-        if (!src || !tgt || !src.parent) return c
-        // prevent moving folder into its own descendant
-        if (!isRequest(src.node) && isAncestor(src.node, src.node.id, targetId)) return c
-
-        let root = removeFromTree(c.root, sourceId)
+      const insertAtTarget = (root: FolderNode): FolderNode => {
         if (position === 'inside') {
-          if (isRequest(tgt.node)) return c
-          root = insertInto(root, tgt.node.id, src.node)
-        } else {
-          if (!tgt.parent) return c
-          const parent = tgt.parent
-          // Reread parent index after removal in case sibling ordering shifted
-          const parentNow = findNodeAndParent(root, parent.id)?.node as FolderNode | undefined
-          if (!parentNow) return c
-          const idx = parentNow.children.findIndex((x) => x.id === targetId)
-          const insertIdx = position === 'after' ? idx + 1 : idx
-          root = insertInto(root, parent.id, src.node, insertIdx)
+          return insertInto(root, tgt.node.id, src.node)
         }
-        return { ...c, root }
+        const parentId = tgt.parent!.id
+        const parentNow = findNodeAndParent(root, parentId)?.node as FolderNode | undefined
+        if (!parentNow) return root
+        const targetIndex = parentNow.children.findIndex((x) => x.id === targetId)
+        const insertIndex = position === 'after' ? targetIndex + 1 : targetIndex
+        return insertInto(root, parentId, src.node, insertIndex)
+      }
+
+      const collections = s.collections.map((collection, index) => {
+        if (sourceCollectionIndex === targetCollectionIndex && index === sourceCollectionIndex) {
+          const withoutSource = removeFromTree(collection.root, sourceId)
+          return { ...collection, root: insertAtTarget(withoutSource) }
+        }
+        if (index === sourceCollectionIndex) {
+          return { ...collection, root: removeFromTree(collection.root, sourceId) }
+        }
+        if (index === targetCollectionIndex) {
+          return { ...collection, root: insertAtTarget(collection.root) }
+        }
+        return collection
       })
 
+      const srcIds = isRequest(src.node)
+        ? [src.node.id]
+        : collectRequestIdsInSubtree(src.node)
       const dirtyRequestIds = { ...s.dirtyRequestIds }
       for (const rid of srcIds) dirtyRequestIds[rid] = true
       return { collections, dirtyRequestIds }

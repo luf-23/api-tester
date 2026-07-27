@@ -266,10 +266,9 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
               return i === 0 ? [node] : [<span key={`bc-sep-${i}`}>/</span>, node]
             })}
           </div>
-          <span className={`request__save-state${dirty ? ' is-dirty' : ''}`}>
-            <span aria-hidden />
-            {dirty ? 'Unsaved changes' : 'Saved locally'}
-          </span>
+          {dirty && (
+            <span className="request__save-state is-dirty">Unsaved changes</span>
+          )}
         </div>
         <div className="header-actions">
           <LoadingButton
