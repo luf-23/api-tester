@@ -669,6 +669,24 @@ body.is-resizing-row .resize-handle--row::after {
   background: color-mix(in srgb, var(--bg-app, #0d0d0d) 52%, rgba(0, 0, 0, 0.55));
   animation: confirmOverlayIn 0.14s ease-out;
 }
+.animated-overlay__center {
+  position: fixed;
+  left: 50vw;
+  top: 50vh;
+  width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.animated-overlay__content {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  pointer-events: none;
+}
+.animated-overlay__content > * {
+  pointer-events: auto;
+}
 @keyframes confirmOverlayIn {
   from { opacity: 0; }
   to { opacity: 1; }
