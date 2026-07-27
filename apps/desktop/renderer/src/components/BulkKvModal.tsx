@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { KeyValue } from '@api-tester/shared'
 import { ui } from '../locale/ui'
 import { bulkTextToParams, paramsToBulkText } from '../lib/bulkKv'
@@ -31,7 +32,7 @@ export function BulkKvModal({ rows, onApply, onClose }: Props) {
     onApply(bulkTextToParams(text))
   }
 
-  return (
+  return createPortal(
     <div className="confirm-overlay" role="presentation" onClick={onClose}>
       <div
         role="dialog"
@@ -64,6 +65,7 @@ export function BulkKvModal({ rows, onApply, onClose }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

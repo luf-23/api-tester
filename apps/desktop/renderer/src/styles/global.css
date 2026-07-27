@@ -659,7 +659,9 @@ body.is-resizing-row .resize-handle--row::after {
 .confirm-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2000;
+  /* App-wide modal layer. Dialogs are portaled to body so panel stacking
+     contexts and resize handles can never paint above the backdrop. */
+  z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1837,6 +1839,52 @@ body.is-resizing-row .resize-handle--row::after {
   color: var(--text-primary);
   font-family: var(--font-code);
   font-size: var(--fs-small);
+}
+
+.request-code-modal {
+  width: min(720px, 100%);
+  max-height: min(82vh, 720px);
+  display: flex;
+  flex-direction: column;
+}
+.request-code-modal__header,
+.request-code-modal__switches {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.request-code-modal__close {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+}
+.request-code-modal__tabs {
+  display: flex;
+  gap: 4px;
+}
+.request-code-modal__tabs button,
+.request-code-modal__switches select {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+.request-code-modal__tabs button.is-active {
+  border-color: var(--accent-ring);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-elevated));
+  color: var(--accent);
+}
+.request-code-modal__switches { margin: 8px 0 12px; }
+.request-code-modal__editor { min-height: 280px; resize: vertical; }
+.request-code-modal__error {
+  margin: -8px 0 12px;
+  color: var(--status-4xx, #d14545);
+  font-size: 12px;
 }
 .request-settings__input--wide {
   width: 100%;

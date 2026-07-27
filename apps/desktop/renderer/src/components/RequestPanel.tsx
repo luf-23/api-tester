@@ -24,6 +24,7 @@ import { KeyValueEditor } from './KeyValueEditor'
 import { MethodPick } from './MethodPick'
 import { IconClock, IconRouting, IconSave, IconSend, IconShield } from './icons'
 import { LoadingButton } from './ui/LoadingButton'
+import { RequestCodeModal } from './RequestCodeModal'
 
 const SUBTABS = [
   { id: 'params' as const, label: ui.request.subtabs.params },
@@ -91,6 +92,7 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
   const [saveHint, setSaveHint] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [paramsBulkOpen, setParamsBulkOpen] = useState(false)
+  const [codeOpen, setCodeOpen] = useState(false)
   const responseState = useTabsStore((s) => s.responses[request.id])
   const sending = Boolean(responseState?.loading)
 
@@ -271,6 +273,9 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           )}
         </div>
         <div className="header-actions">
+          <button type="button" className="btn" onClick={() => setCodeOpen(true)}>
+            {'</>'} {ui.request.viewCode}
+          </button>
           <LoadingButton
             className="btn"
             loading={saving}
@@ -287,6 +292,13 @@ export function RequestPanel({ request }: { request: RequestWithTests }) {
           {saveHint && <span className="request__hint muted">{saveHint}</span>}
         </div>
       </div>
+      {codeOpen && (
+        <RequestCodeModal
+          request={request}
+          onClose={() => setCodeOpen(false)}
+          onImport={(patch) => update(request.id, patch)}
+        />
+      )}
 
       <div className="url-bar">
         <MethodPick value={request.method} onChange={(m) => update(request.id, { method: m })} />

@@ -38,6 +38,7 @@ import {
 } from './icons'
 import { AnimatedOverlay } from './ui/AnimatedOverlay'
 import { Spinner } from './ui/Spinner'
+import { RequestCodeModal } from './RequestCodeModal'
 
 function isRequest(n: FolderNode | RequestWithTests): n is RequestWithTests {
   return 'method' in n
@@ -128,6 +129,7 @@ export function CollectionsPanel() {
   const [pendingMove, setPendingMove] = useState<PendingMoveState | null>(null)
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [requestImportParentId, setRequestImportParentId] = useState<string | null>(null)
   const [drag, setDrag] = useState<{ id: string; over?: string; pos?: DropPosition } | null>(
     null
   )
@@ -142,6 +144,7 @@ export function CollectionsPanel() {
   const expandFolder = useWorkspaceStore((s) => s.expandFolder)
   const closeTab = useTabsStore((s) => s.close)
   const openTabs = useTabsStore((s) => s.openIds)
+  const openTab = useTabsStore((s) => s.open)
 
   useEffect(() => {
     const close = () => setMenu(null)
@@ -464,6 +467,8 @@ export function CollectionsPanel() {
             } else if (action === 'add-request') {
               const newId = addRequest(id)
               setEditingId(newId)
+            } else if (action === 'import-request') {
+              setRequestImportParentId(id)
             } else if (action === 'add-folder') {
               const newId = addFolder(id)
               setEditingId(newId)
@@ -481,6 +486,24 @@ export function CollectionsPanel() {
           onConfirm={() => {
             performDelete(pendingDeleteId)
             setPendingDeleteId(null)
+          }}
+        />
+      )}
+
+      {requestImportParentId && (
+        <RequestCodeModal
+          initialMode="import"
+          importOnly
+          onClose={() => setRequestImportParentId(null)}
+          onImport={(patch) => {
+            const newId = addRequest(requestImportParentId, patch.method)
+            const urlName = patch.url.split(/[/?#]/).filter(Boolean).at(-1)
+            useWorkspaceStore.getState().updateRequest(newId, {
+              ...patch,
+              name: urlName ? `Imported ${urlName}` : 'Imported Request',
+            })
+            openTab(newId)
+            showToast('Request imported')
           }}
         />
       )}
@@ -1056,6 +1079,7 @@ function ContextMenu({
       | 'delete'
       | 'duplicate'
       | 'add-request'
+      | 'import-request'
       | 'add-folder'
       | 'run'
   ) => void
@@ -1102,6 +1126,9 @@ function ContextMenu({
           <>
             <button role="menuitem" onClick={() => onAction('add-request')}>
               <IconFilePlus width={16} height={16} /> {ui.collections.ctxAddRequest}
+            </button>
+            <button role="menuitem" onClick={() => onAction('import-request')}>
+              <IconImport width={16} height={16} /> Import request
             </button>
             <button role="menuitem" onClick={() => onAction('add-folder')}>
               <IconFolderPlus width={16} height={16} /> {ui.collections.ctxAddFolder}
