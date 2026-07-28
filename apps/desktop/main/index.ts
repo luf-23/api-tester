@@ -9,6 +9,7 @@ if (!app.isPackaged) {
   app.commandLine.appendSwitch('remote-allow-origins', '*')
 }
 import {
+  appSettingsSchema,
   appCloseRequestedChannel,
   httpStreamPushChannel,
   ipcChannels,
@@ -277,6 +278,10 @@ app.whenReady().then(() => {
     store!.addHistory(entry as Parameters<WorkspaceStore['addHistory']>[0])
     return { ok: true }
   })
+  ipcMain.handle(ipcChannels.historyClear, async () => {
+    store!.clearHistory()
+    return { ok: true }
+  })
 
   ipcMain.handle(ipcChannels.workspaceGet, async () => store!.getWorkspaceMeta())
   ipcMain.handle(ipcChannels.workspaceSaveMeta, async (_e, meta: unknown) => {
@@ -286,6 +291,25 @@ app.whenReady().then(() => {
       >
     )
     return { ok: true }
+  })
+
+  ipcMain.handle(ipcChannels.settingsGet, async () => store!.getAppSettings())
+  ipcMain.handle(ipcChannels.settingsSet, async (_e, value: unknown) => {
+    const parsed = appSettingsSchema.safeParse(value)
+    if (!parsed.success) throw new Error('Invalid application settings')
+    store!.setAppSettings(parsed.data)
+    return { ok: true }
+  })
+  ipcMain.handle(ipcChannels.settingsReset, async () => store!.resetAppSettings())
+
+  ipcMain.handle(ipcChannels.appInfo, async () => ({
+    version: app.getVersion(),
+    dataDirectory: dbPath,
+    isPackaged: app.isPackaged,
+  }))
+  ipcMain.handle(ipcChannels.appShowDataDirectory, async () => {
+    const error = await shell.openPath(dbPath)
+    return error ? { ok: false as const, error } : { ok: true as const }
   })
 
   ipcMain.handle(ipcChannels.appFinishClose, async () => {
@@ -407,6 +431,7 @@ app.whenReady().then(() => {
       meta: parsed.meta ?? store!.getWorkspaceMeta(),
       environments: parsed.environments,
       collections: parsed.collections,
+      history: parsed.history,
     })
     return { ok: true }
   })
@@ -431,6 +456,7 @@ app.whenReady().then(() => {
 
   createWindow()
   setupAutoUpdater(() => mainWindow, {
+    shouldCheckOnStart: () => store?.getAppSettings().autoCheckUpdates ?? true,
     prepareForInstall: async () => {
       await mockCtl.stop()
       store?.close()

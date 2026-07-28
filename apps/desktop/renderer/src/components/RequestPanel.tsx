@@ -14,6 +14,7 @@ import { ui } from '../locale/ui'
 import { saveCollectionsToDisk } from '../lib/persistWorkspace'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
+import { useSettingsStore } from '../store/settings'
 import { sendHttp } from '../lib/api'
 import { useWheelHorizontalScroll } from '../lib/useWheelHorizontalScroll'
 import { tryFormatJson } from '../lib/format'
@@ -510,6 +511,21 @@ function RequestSendSettingsPanel({ request }: { request: RequestWithTests }) {
 
   return (
     <div className="request-settings">
+      <div className="request-settings__global-defaults">
+        <span>此请求使用独立设置。</span>
+        <button
+          type="button"
+          onClick={() =>
+            update(request.id, {
+              sendSettings: structuredClone(
+                useSettingsStore.getState().settings.requestDefaults
+              ),
+            })
+          }
+        >
+          重置为应用默认值
+        </button>
+      </div>
       <div className="request-settings__layout">
         <section className="request-settings__section">
           <div className="request-settings__section-head">

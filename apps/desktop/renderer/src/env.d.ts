@@ -1,6 +1,8 @@
 /// <reference types="vite/client" />
 
 import type {
+  AppInfo,
+  AppSettings,
   Collection,
   HttpStreamPushPayload,
   RequestDraft,
@@ -40,8 +42,12 @@ declare global {
       dbHealth: () => Promise<{ ok: boolean }>
       historyList: () => Promise<unknown[]>
       historyAdd: (entry: unknown) => Promise<{ ok: boolean }>
+      historyClear: () => Promise<{ ok: boolean }>
       workspaceGet: () => Promise<unknown>
       workspaceSaveMeta: (meta: unknown) => Promise<{ ok: boolean }>
+      settingsGet: () => Promise<AppSettings>
+      settingsSet: (settings: AppSettings) => Promise<{ ok: boolean }>
+      settingsReset: () => Promise<AppSettings>
       themeGet: () => Promise<string | null>
       themeSet: (themeId: string) => Promise<{ ok: boolean }>
       collectionsList: () => Promise<unknown[]>
@@ -70,6 +76,8 @@ declare global {
       updaterCheck: () => Promise<{ ok: true } | { ok: false; reason?: string; message?: string }>
       updaterDownload: () => Promise<{ ok: true } | { ok: false; reason?: string; message?: string }>
       updaterQuitAndInstall: () => Promise<{ ok: true } | { ok: false; reason?: string }>
+      appInfo: () => Promise<AppInfo>
+      appShowDataDirectory: () => Promise<{ ok: true } | { ok: false; error: string }>
       updaterSubscribe: (callback: (payload: UpdaterPushPayload) => void) => () => void
       appFinishClose?: () => Promise<{ ok: boolean }>
       onCloseRequested?: (callback: () => void) => () => void

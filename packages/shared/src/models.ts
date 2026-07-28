@@ -65,6 +65,27 @@ export function defaultSendSettings(): RequestSendSettings {
   }
 }
 
+/** Application-wide preferences. Per-request send settings may override requestDefaults. */
+export interface AppSettings {
+  themeId: string
+  requestDefaults: RequestSendSettings
+  autoCheckUpdates: boolean
+}
+
+export function defaultAppSettings(): AppSettings {
+  return {
+    themeId: 'jade-porcelain',
+    requestDefaults: defaultSendSettings(),
+    autoCheckUpdates: true,
+  }
+}
+
+export interface AppInfo {
+  version: string
+  dataDirectory: string
+  isPackaged: boolean
+}
+
 export interface RequestDraft {
   id: string
   name: string

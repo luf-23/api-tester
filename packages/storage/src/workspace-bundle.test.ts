@@ -93,6 +93,35 @@ describe('tryParseWorkspaceBundle', () => {
     expect(p?.meta?.name).toBe('W')
   })
 
+  it('keeps history in a full workspace backup', () => {
+    const history = [
+      {
+        id: 'h1',
+        createdAt: 123,
+        request: {
+          id: 'r1',
+          name: 'GET health',
+          method: 'GET',
+          url: 'https://example.com/health',
+          params: [],
+          headers: [],
+          bodyMode: 'none',
+          bodyText: '',
+          bodyFields: [],
+        },
+      },
+    ]
+    const json = JSON.stringify({
+      format: WORKSPACE_EXPORT_FORMAT,
+      version: WORKSPACE_EXPORT_VERSION,
+      exportedAt: 1,
+      environments: [],
+      collections: [],
+      history,
+    })
+    expect(tryParseWorkspaceBundle(json)?.history).toEqual(history)
+  })
+
   it('returns null for Postman-shaped JSON', () => {
     const json = JSON.stringify({
       info: {

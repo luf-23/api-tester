@@ -1,9 +1,11 @@
 import type {
+  AppSettings,
   Collection,
   Environment,
   HistoryEntry,
   WorkspaceMeta,
 } from '@api-tester/shared'
+import { defaultAppSettings } from '@api-tester/shared'
 import type { StorageContext } from './db'
 import {
   allocateUniqueDisplayName,
@@ -13,6 +15,7 @@ import {
 } from './workspace-bundle'
 
 const THEME_KEY = 'theme_id'
+const APP_SETTINGS_KEY = 'app_settings_v1'
 const DEFAULT_WS_ID = 'default'
 
 export class WorkspaceStore {
@@ -53,20 +56,63 @@ export class WorkspaceStore {
   }
 
   getThemeId(): string | undefined {
-    const row = this.ctx.db.prepare(`SELECT value FROM kv_settings WHERE key = ?`).get(THEME_KEY) as
-      | { value: string }
-      | undefined
-    const v = row?.value?.trim()
-    return v || undefined
+    return this.getAppSettings().themeId
   }
 
-  setThemeId(themeId: string): void {
+  getAppSettings(): AppSettings {
+    const defaults = defaultAppSettings()
+    const settingsRow = this.ctx.db
+      .prepare(`SELECT value FROM kv_settings WHERE key = ?`)
+      .get(APP_SETTINGS_KEY) as { value: string } | undefined
+    if (settingsRow?.value) {
+      try {
+        const saved = JSON.parse(settingsRow.value) as Partial<AppSettings>
+        return {
+          ...defaults,
+          ...saved,
+          requestDefaults: {
+            ...defaults.requestDefaults,
+            ...(saved.requestDefaults ?? {}),
+          },
+        }
+      } catch {
+        // Fall through to the legacy theme preference.
+      }
+    }
+
+    const legacyTheme = this.ctx.db
+      .prepare(`SELECT value FROM kv_settings WHERE key = ?`)
+      .get(THEME_KEY) as
+      | { value: string }
+      | undefined
+    const themeId = legacyTheme?.value?.trim()
+    return themeId ? { ...defaults, themeId } : defaults
+  }
+
+  setAppSettings(settings: AppSettings): void {
     this.ctx.db
       .prepare(
         `INSERT INTO kv_settings (key, value) VALUES (?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`
       )
-      .run(THEME_KEY, themeId)
+      .run(APP_SETTINGS_KEY, JSON.stringify(settings))
+  }
+
+  resetAppSettings(): AppSettings {
+    const defaults = defaultAppSettings()
+    const tx = this.ctx.db.transaction(() => {
+      this.ctx.db.prepare(`DELETE FROM kv_settings WHERE key IN (?, ?)`).run(
+        APP_SETTINGS_KEY,
+        THEME_KEY
+      )
+      this.setAppSettings(defaults)
+    })
+    tx()
+    return defaults
+  }
+
+  setThemeId(themeId: string): void {
+    this.setAppSettings({ ...this.getAppSettings(), themeId })
   }
 
   getWorkspaceMeta(): WorkspaceMeta {
@@ -186,6 +232,10 @@ export class WorkspaceStore {
     return rows.map((r) => structuredClone(JSON.parse(r.json) as HistoryEntry))
   }
 
+  clearHistory(): void {
+    this.ctx.db.prepare(`DELETE FROM history`).run()
+  }
+
   exportAll(): {
     meta: WorkspaceMeta
     environments: Environment[]
@@ -276,6 +326,7 @@ export class WorkspaceStore {
     meta: WorkspaceMeta
     environments: Environment[]
     collections: Collection[]
+    history?: HistoryEntry[]
   }): void {
     const historyRows = this.ctx.db
       .prepare(`SELECT json FROM history ORDER BY created_at DESC`)
@@ -298,9 +349,15 @@ export class WorkspaceStore {
 
       this.ctx.db.prepare(`DELETE FROM history`).run()
       const insHist = this.ctx.db.prepare(`INSERT INTO history (id, created_at, json) VALUES (?, ?, ?)`)
-      for (const r of historyRows) {
-        const h = JSON.parse(r.json) as HistoryEntry
-        insHist.run(h.id, h.createdAt, r.json)
+      if (dataIn.history) {
+        for (const h of dataIn.history) {
+          insHist.run(h.id, h.createdAt, JSON.stringify(h))
+        }
+      } else {
+        for (const r of historyRows) {
+          const h = JSON.parse(r.json) as HistoryEntry
+          insHist.run(h.id, h.createdAt, r.json)
+        }
       }
     })
     tx()

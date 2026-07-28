@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTabsStore } from '../store/tabs'
 import { useWorkspaceStore } from '../store/workspace'
-import { ThemeCard } from './ThemeCard'
 import { ui } from '../locale/ui'
 import { useWheelHorizontalScroll } from '../lib/useWheelHorizontalScroll'
 import { saveCollectionsToDisk } from '../lib/persistWorkspace'
@@ -13,24 +12,18 @@ type TabPrompt =
   | { kind: 'single'; id: string; name: string }
   | { kind: 'closeAll' }
 
-export function TopBar() {
+export function TopBar({
+  settingsOpen,
+  onOpenSettings,
+}: {
+  settingsOpen: boolean
+  onOpenSettings: () => void
+}) {
   const tabsScrollRef = useRef<HTMLDivElement>(null)
   useWheelHorizontalScroll(tabsScrollRef)
-  const settingsWrapRef = useRef<HTMLDivElement>(null)
   const tabMenuWrapRef = useRef<HTMLDivElement>(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [tabMenuOpen, setTabMenuOpen] = useState(false)
   const [tabPrompt, setTabPrompt] = useState<TabPrompt>(null)
-
-  useEffect(() => {
-    if (!settingsOpen) return
-    const onPointerDown = (e: PointerEvent) => {
-      const el = settingsWrapRef.current
-      if (el && !el.contains(e.target as Node)) setSettingsOpen(false)
-    }
-    window.addEventListener('pointerdown', onPointerDown)
-    return () => window.removeEventListener('pointerdown', onPointerDown)
-  }, [settingsOpen])
 
   useEffect(() => {
     if (!tabMenuOpen) return
@@ -160,8 +153,9 @@ export function TopBar() {
                   requestCloseTab(id, r.name)
                 }}
                 aria-label={ui.topBar.closeTab(r.name)}
+                title={ui.topBar.closeTab(r.name)}
               >
-                <IconClose width={16} height={16} />
+                <IconClose width={12} height={12} />
               </button>
             </div>
           )
@@ -206,23 +200,16 @@ export function TopBar() {
         )}
       </div>
       <div className="topbar__actions">
-        <div className="topbar-settings" ref={settingsWrapRef}>
-          <button
-            type="button"
-            className={`icon-btn${settingsOpen ? ' is-active' : ''}`}
-            title={ui.topBar.appearance}
-            aria-expanded={settingsOpen}
-            aria-haspopup="dialog"
-            onClick={() => setSettingsOpen((o) => !o)}
-          >
-            <IconSettings />
-          </button>
-          {settingsOpen && (
-            <div className="topbar-settings__panel" role="dialog" aria-label={ui.topBar.appearancePanel}>
-              <ThemeCard />
-            </div>
-          )}
-        </div>
+        <button
+          type="button"
+          className={`icon-btn${settingsOpen ? ' is-active' : ''}`}
+          title="设置"
+          aria-label="打开设置"
+          aria-pressed={settingsOpen}
+          onClick={onOpenSettings}
+        >
+          <IconSettings />
+        </button>
       </div>
 
       <UnsavedPrompt

@@ -123,6 +123,7 @@ export interface ParsedWorkspaceBundle {
   collections: Collection[]
   environments: Environment[]
   meta?: WorkspaceMeta
+  history?: HistoryEntry[]
 }
 
 function tryWorkspaceMeta(raw: unknown): WorkspaceMeta | undefined {
@@ -156,6 +157,22 @@ function asEnvironmentArray(raw: unknown): Environment[] {
   return out
 }
 
+function asHistoryArray(raw: unknown): HistoryEntry[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  return raw
+    .filter((item): item is HistoryEntry => {
+      if (!item || typeof item !== 'object') return false
+      const value = item as Record<string, unknown>
+      return (
+        typeof value.id === 'string' &&
+        typeof value.createdAt === 'number' &&
+        typeof value.request === 'object' &&
+        value.request !== null
+      )
+    })
+    .map((item) => structuredClone(item))
+}
+
 /** Parse our workspace JSON (v1 wrapper or legacy `exportAll` shape). Returns null if not recognized. */
 export function tryParseWorkspaceBundle(text: string): ParsedWorkspaceBundle | null {
   let raw: unknown
@@ -174,6 +191,7 @@ export function tryParseWorkspaceBundle(text: string): ParsedWorkspaceBundle | n
       collections: structuredClone(cols),
       environments: asEnvironmentArray(o.environments),
       meta: tryWorkspaceMeta(o.meta),
+      history: asHistoryArray(o.history),
     }
   }
 
@@ -184,6 +202,7 @@ export function tryParseWorkspaceBundle(text: string): ParsedWorkspaceBundle | n
       collections: structuredClone(cols),
       environments: asEnvironmentArray(o.environments),
       meta: tryWorkspaceMeta(o.meta),
+      history: asHistoryArray(o.history),
     }
   }
 

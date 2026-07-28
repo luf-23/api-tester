@@ -8,6 +8,7 @@ import {
   type RequestWithTests,
 } from '@api-tester/shared'
 import { uid } from '../lib/ids'
+import { useSettingsStore } from './settings'
 
 type Node = FolderNode | RequestWithTests
 export type DropPosition = 'inside' | 'before' | 'after'
@@ -195,7 +196,10 @@ function emptyRequest(name = 'New Request', method: HttpMethod = 'GET'): Request
     bodyMode: 'none',
     bodyText: '',
     bodyFields: [],
-    sendSettings: defaultSendSettings(),
+    sendSettings: {
+      ...defaultSendSettings(),
+      ...useSettingsStore.getState().settings.requestDefaults,
+    },
   }
 }
 

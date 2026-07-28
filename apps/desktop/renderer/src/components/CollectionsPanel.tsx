@@ -23,6 +23,7 @@ import { useWorkspaceStore, type DropPosition } from '../store/workspace'
 import { useTabsStore } from '../store/tabs'
 import {
   IconChevDown,
+  IconClose,
   IconCopy,
   IconEdit,
   IconExport,
@@ -122,6 +123,7 @@ export function CollectionsPanel() {
     [collections]
   )
   const [search, setSearch] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
@@ -358,15 +360,17 @@ export function CollectionsPanel() {
 
   return (
     <div className="collections">
-      <div className="collections__brand">
+      <div className="collections__brand" aria-label="JadeAPI Studio，本地工作区">
         <div className="collections__brand-mark" aria-hidden>
-          J
+          <svg viewBox="0 0 32 32">
+            <path className="brand-gem__body" d="M9 6.5h14l4 6.2L16 26 5 12.7 9 6.5Z" />
+            <path d="m5.8 12.6 6.1-.2L16 25.2l4.1-12.8 6.1.2M9.2 6.8l2.7 5.6L16 6.8l4.1 5.6 2.7-5.6" />
+          </svg>
         </div>
         <div className="collections__brand-copy">
-          <strong>Jade API</strong>
-          <span>Local workspace</span>
+          <strong><span>Jade</span>API Studio</strong>
+          <small>API workspace</small>
         </div>
-        <span className="collections__local-dot" title={ui.collections.badgeLocal} />
       </div>
       <div className="collections__top">
         <div className="collections__identity">
@@ -379,17 +383,29 @@ export function CollectionsPanel() {
           <div className="search-input">
             <IconSearch width={18} height={18} />
             <input
+              ref={searchInputRef}
+              type="text"
               placeholder={ui.collections.searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Escape') return
+                if (search) setSearch('')
+                else e.currentTarget.blur()
+              }}
             />
             {search && (
               <button
+                type="button"
                 className="search-input__clear"
-                onClick={() => setSearch('')}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setSearch('')
+                  searchInputRef.current?.focus()
+                }}
                 aria-label={ui.collections.clearSearch}
               >
-                ×
+                <IconClose width={12} height={12} />
               </button>
             )}
           </div>

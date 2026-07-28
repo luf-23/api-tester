@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { WorkspaceMeta } from '@api-tester/shared'
+import type { AppSettings, WorkspaceMeta } from '@api-tester/shared'
 import { CollectionsPanel } from './components/CollectionsPanel'
 import { TopBar } from './components/TopBar'
 import { RequestPanel } from './components/RequestPanel'
@@ -7,6 +7,7 @@ import { ResponsePanel } from './components/ResponsePanel'
 import { StatusBar } from './components/StatusBar'
 import { UnsavedPrompt } from './components/UnsavedPrompt'
 import { UpdateBanner } from './components/UpdateBanner'
+import { SettingsPage } from './components/SettingsPage'
 import {
   persistEditorTabState,
   pruneTabsToExistingRequests,
@@ -15,6 +16,7 @@ import {
 import { useTabsStore } from './store/tabs'
 import { useWorkspaceStore } from './store/workspace'
 import { useThemeStore } from './store/theme'
+import { useSettingsStore } from './store/settings'
 import { ui } from './locale/ui'
 import { BootScreen } from './components/ui/BootScreen'
 import { IconFilePlus, IconFolderPlus, IconSend } from './components/icons'
@@ -46,6 +48,7 @@ export default function App() {
     persist: false,
   })
   const [quitPromptOpen, setQuitPromptOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_SIDEBAR) : null
@@ -76,12 +79,12 @@ export default function App() {
       return
     }
     let cancelled = false
-    void Promise.all([bridge.collectionsGetAll(), bridge.themeGet(), bridge.workspaceGet()])
-      .then(([cols, themeId, meta]) => {
+    void Promise.all([bridge.collectionsGetAll(), bridge.settingsGet(), bridge.workspaceGet()])
+      .then(([cols, settings, meta]) => {
         if (cancelled) return
-        if (typeof themeId === 'string' && themeId.trim()) {
-          useThemeStore.getState().setTheme(themeId.trim())
-        }
+        const appSettings = settings as AppSettings
+        useSettingsStore.getState().load(appSettings)
+        useThemeStore.getState().setTheme(appSettings.themeId)
         useWorkspaceStore.setState({ collections: cols })
         useWorkspaceStore.getState().syncPersistedSnapshot(JSON.stringify(cols))
 
@@ -135,30 +138,6 @@ export default function App() {
       if (state.openIds === prev.openIds && state.activeId === prev.activeId) return
       clearTimeout(timeout)
       timeout = setTimeout(flush, 400)
-    })
-
-    return () => {
-      clearTimeout(timeout)
-      unsub()
-    }
-  }, [boot.ui, boot.persist])
-
-  useEffect(() => {
-    if (!boot.ui || !boot.persist) return
-    const bridge = window.apiTester
-    if (!bridge?.themeSet) return
-
-    let timeout: ReturnType<typeof setTimeout>
-    const persist = (id: string) => {
-      clearTimeout(timeout)
-      timeout = setTimeout(() => {
-        void bridge.themeSet(id)
-      }, 320)
-    }
-
-    const unsub = useThemeStore.subscribe((state, prev) => {
-      if (state.themeId === prev.themeId) return
-      persist(state.themeId)
     })
 
     return () => {
@@ -232,66 +211,79 @@ export default function App() {
   return (
     <div className="app">
       <div className="app__workspace">
-        <aside className="app__sidebar" style={{ width: sidebarWidth }}>
-          <CollectionsPanel />
-        </aside>
-        <div
-          className="resize-handle resize-handle--col"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={ui.app.resizeCollections}
-          onMouseDown={startColResize}
-        />
+        {!settingsOpen && (
+          <>
+            <aside className="app__sidebar" style={{ width: sidebarWidth }}>
+              <CollectionsPanel />
+            </aside>
+            <div
+              className="resize-handle resize-handle--col"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={ui.app.resizeCollections}
+              onMouseDown={startColResize}
+            />
+          </>
+        )}
         <main className="app__main">
           <UpdateBanner />
-          <TopBar />
-          {activeRequest ? (
-            <div className="editor-stack" ref={editorStackRef}>
-              <div
-                className="editor-stack__pane editor-stack__pane--request"
-                style={{ flexGrow: splitFrac, flexShrink: 1, flexBasis: 0 }}
-              >
-                <RequestPanel request={activeRequest} />
-              </div>
-              <div
-                className="resize-handle resize-handle--row"
-                role="separator"
-                aria-orientation="horizontal"
-                aria-label={ui.app.resizeEditor}
-                onMouseDown={startRowResize}
-              />
-              <div
-                className="editor-stack__pane editor-stack__pane--response"
-                style={{ flexGrow: 1 - splitFrac, flexShrink: 1, flexBasis: 0 }}
-              >
-                <ResponsePanel requestId={activeRequest.id} />
-              </div>
-            </div>
+          {settingsOpen ? (
+            <SettingsPage onClose={() => setSettingsOpen(false)} />
           ) : (
-            <div className="app__empty">
-              <div className="app__empty-illustration" aria-hidden>
-                <IconSend />
-              </div>
-              <p className="app__empty-eyebrow">READY TO TEST</p>
-              <h1 className="app__empty-title">{ui.app.emptyTitle}</h1>
-              <p className="app__empty-hint">{ui.app.emptyHint}</p>
-              <div className="app__empty-actions">
-                <button type="button" className="btn btn--primary" onClick={createFirstRequest}>
-                  <IconFilePlus /> New request
-                </button>
-                <button type="button" className="btn" onClick={createCollection}>
-                  <IconFolderPlus /> New collection
-                </button>
-              </div>
-              <div className="app__empty-shortcut">
-                <kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd>
-                <span>to send a request</span>
-              </div>
-            </div>
+            <>
+              <TopBar
+                settingsOpen={false}
+                onOpenSettings={() => setSettingsOpen(true)}
+              />
+              {activeRequest ? (
+                <div className="editor-stack" ref={editorStackRef}>
+                  <div
+                    className="editor-stack__pane editor-stack__pane--request"
+                    style={{ flexGrow: splitFrac, flexShrink: 1, flexBasis: 0 }}
+                  >
+                    <RequestPanel request={activeRequest} />
+                  </div>
+                  <div
+                    className="resize-handle resize-handle--row"
+                    role="separator"
+                    aria-orientation="horizontal"
+                    aria-label={ui.app.resizeEditor}
+                    onMouseDown={startRowResize}
+                  />
+                  <div
+                    className="editor-stack__pane editor-stack__pane--response"
+                    style={{ flexGrow: 1 - splitFrac, flexShrink: 1, flexBasis: 0 }}
+                  >
+                    <ResponsePanel requestId={activeRequest.id} />
+                  </div>
+                </div>
+              ) : (
+                <div className="app__empty">
+                  <div className="app__empty-illustration" aria-hidden>
+                    <IconSend />
+                  </div>
+                  <p className="app__empty-eyebrow">READY TO TEST</p>
+                  <h1 className="app__empty-title">{ui.app.emptyTitle}</h1>
+                  <p className="app__empty-hint">{ui.app.emptyHint}</p>
+                  <div className="app__empty-actions">
+                    <button type="button" className="btn btn--primary" onClick={createFirstRequest}>
+                      <IconFilePlus /> New request
+                    </button>
+                    <button type="button" className="btn" onClick={createCollection}>
+                      <IconFolderPlus /> New collection
+                    </button>
+                  </div>
+                  <div className="app__empty-shortcut">
+                    <kbd>Ctrl</kbd><span>+</span><kbd>Enter</kbd>
+                    <span>to send a request</span>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </main>
       </div>
-      <StatusBar />
+      {!settingsOpen && <StatusBar />}
 
       <UnsavedPrompt
         open={quitPromptOpen}

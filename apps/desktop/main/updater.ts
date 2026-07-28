@@ -10,7 +10,10 @@ type NsisAutoUpdater = typeof autoUpdater & { installDirectory?: string }
 
 export function setupAutoUpdater(
   getWindow: () => BrowserWindow | null,
-  options?: { prepareForInstall?: () => void | Promise<void> }
+  options?: {
+    prepareForInstall?: () => void | Promise<void>
+    shouldCheckOnStart?: () => boolean | Promise<boolean>
+  }
 ): void {
   function push(payload: UpdaterPushPayload): void {
     const w = getWindow()
@@ -104,9 +107,12 @@ export function setupAutoUpdater(
 
   setTimeout(() => {
     if (!getWindow()) return
-    void autoUpdater.checkForUpdates().catch((e) => {
-      const message = e instanceof Error ? e.message : String(e)
-      push({ type: 'error', message })
+    void Promise.resolve(options?.shouldCheckOnStart?.() ?? true).then((enabled) => {
+      if (!enabled || !getWindow()) return
+      void autoUpdater.checkForUpdates().catch((e) => {
+        const message = e instanceof Error ? e.message : String(e)
+        push({ type: 'error', message })
+      })
     })
   }, 8_000)
 }

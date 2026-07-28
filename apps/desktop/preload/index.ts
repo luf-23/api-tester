@@ -30,9 +30,13 @@ const api = {
   dbHealth: () => ipcRenderer.invoke(ipcChannels.dbHealth),
   historyList: () => ipcRenderer.invoke(ipcChannels.historyList),
   historyAdd: (entry: unknown) => ipcRenderer.invoke(ipcChannels.historyAdd, entry),
+  historyClear: () => ipcRenderer.invoke(ipcChannels.historyClear),
   workspaceGet: () => ipcRenderer.invoke(ipcChannels.workspaceGet),
   workspaceSaveMeta: (meta: unknown) =>
     ipcRenderer.invoke(ipcChannels.workspaceSaveMeta, meta),
+  settingsGet: () => ipcRenderer.invoke(ipcChannels.settingsGet),
+  settingsSet: (settings: unknown) => ipcRenderer.invoke(ipcChannels.settingsSet, settings),
+  settingsReset: () => ipcRenderer.invoke(ipcChannels.settingsReset),
   themeGet: () => ipcRenderer.invoke(ipcChannels.themeGet),
   themeSet: (themeId: string) => ipcRenderer.invoke(ipcChannels.themeSet, themeId),
   collectionsList: () => ipcRenderer.invoke(ipcChannels.collectionsList),
@@ -60,6 +64,8 @@ const api = {
   updaterCheck: () => ipcRenderer.invoke(ipcChannels.updaterCheck),
   updaterDownload: () => ipcRenderer.invoke(ipcChannels.updaterDownload),
   updaterQuitAndInstall: () => ipcRenderer.invoke(ipcChannels.updaterQuitAndInstall),
+  appInfo: () => ipcRenderer.invoke(ipcChannels.appInfo),
+  appShowDataDirectory: () => ipcRenderer.invoke(ipcChannels.appShowDataDirectory),
   appFinishClose: () => ipcRenderer.invoke(ipcChannels.appFinishClose),
   onCloseRequested: (callback: () => void) => {
     const listener = (): void => {

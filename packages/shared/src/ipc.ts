@@ -23,6 +23,12 @@ export const requestSendSettingsSchema = z.object({
   proxyUrl: z.string().max(2048).optional(),
 })
 
+export const appSettingsSchema = z.object({
+  themeId: z.string().trim().min(1).max(100),
+  requestDefaults: requestSendSettingsSchema,
+  autoCheckUpdates: z.boolean(),
+})
+
 export const requestDraftSchema = z
   .object({
     id: z.string(),
@@ -100,8 +106,12 @@ export const ipcChannels = {
   dbHealth: 'db:health',
   historyList: 'history:list',
   historyAdd: 'history:add',
+  historyClear: 'history:clear',
   workspaceGet: 'workspace:get',
   workspaceSaveMeta: 'workspace:saveMeta',
+  settingsGet: 'settings:get',
+  settingsSet: 'settings:set',
+  settingsReset: 'settings:reset',
   themeGet: 'theme:get',
   themeSet: 'theme:set',
   collectionsList: 'collections:list',
@@ -124,6 +134,8 @@ export const ipcChannels = {
   updaterCheck: 'updater:check',
   updaterDownload: 'updater:download',
   updaterQuitAndInstall: 'updater:quitAndInstall',
+  appInfo: 'app:info',
+  appShowDataDirectory: 'app:showDataDirectory',
   /** Renderer invokes after user confirms window close (save/discard/no dirty). */
   appFinishClose: 'app:finishClose',
 } as const
