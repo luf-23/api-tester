@@ -1495,6 +1495,7 @@ body.is-resizing-row .resize-handle--row::after {
 }
 
 .json-body-cm-wrap {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -1512,6 +1513,67 @@ body.is-resizing-row .resize-handle--row::after {
 .json-body-cm .cm-content {
   user-select: text;
   -webkit-user-select: text;
+}
+
+/* Keep CodeMirror's control sizes intact; only center checkbox and label text. */
+.json-body-cm .cm-panel.cm-search label {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.json-body-cm .cm-panel.cm-search label input[type='checkbox'] {
+  flex: 0 0 auto;
+}
+
+.search-replace-confirm {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 12;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px 10px;
+  box-sizing: border-box;
+  max-width: min(380px, calc(100% - 16px));
+  padding: 6px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--text-primary) 16%, transparent);
+  transform: translate(-50%, -50%);
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
+}
+.search-replace-confirm__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-replace-confirm__actions {
+  display: inline-flex;
+  gap: 6px;
+}
+.search-replace-confirm__button {
+  color: inherit;
+  font: inherit;
+  font-size: 70%;
+  line-height: normal;
+  padding: 0.2em 1em;
+  border: 1px solid color-mix(in srgb, var(--text-muted) 70%, var(--border-strong));
+  border-radius: 1px;
+  background: linear-gradient(var(--bg-elevated), var(--border-subtle));
+  cursor: default;
+}
+.search-replace-confirm__button:active {
+  background: linear-gradient(var(--border-subtle), var(--bg-elevated));
+}
+.search-replace-confirm__button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .tests-editor__list {

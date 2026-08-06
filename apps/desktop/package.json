@@ -1,6 +1,6 @@
 {
   "name": "@api-tester/desktop",
-  "version": "2.7.0",
+  "version": "2.7.1",
   "private": true,
   "repository": {
     "type": "git",
@@ -27,6 +27,7 @@
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/language": "^6.12.3",
     "@codemirror/lint": "^6.9.6",
+    "@codemirror/search": "^6.7.0",
     "@codemirror/view": "^6.42.1",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",

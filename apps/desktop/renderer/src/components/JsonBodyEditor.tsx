@@ -1,7 +1,9 @@
+import { useRef, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { bracketMatching, syntaxHighlighting, HighlightStyle } from '@codemirror/language'
 import { json, jsonParseLinter } from '@codemirror/lang-json'
 import { linter, lintGutter } from '@codemirror/lint'
+import { getSearchQuery, replaceAll, replaceNext } from '@codemirror/search'
 import { tags as t } from '@lezer/highlight'
 import { EditorView } from '@codemirror/view'
 
@@ -86,15 +88,80 @@ const jsonExtensions = [
   jsonEditorChrome,
 ]
 
+// Keep this object stable. @uiw/react-codemirror reconfigures the editor when
+// basicSetup changes by reference, which would close an open search panel.
+const jsonBasicSetup = {
+  lineNumbers: true,
+  foldGutter: true,
+  closeBrackets: true,
+  bracketMatching: false,
+  defaultKeymap: true,
+  history: true,
+  indentOnInput: true,
+  syntaxHighlighting: false,
+}
+
 interface Props {
   value: string
   onChange: (value: string) => void
   placeholder?: string
 }
 
+type PendingReplace = 'next' | 'all'
+
 export function JsonBodyEditor({ value, onChange, placeholder }: Props) {
+  const editorRef = useRef<EditorView | null>(null)
+  const [pendingReplace, setPendingReplace] = useState<PendingReplace | null>(null)
+
+  const requestReplace = (kind: PendingReplace) => {
+    setPendingReplace(kind)
+  }
+
+  const handleSearchClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target instanceof Element
+      ? event.target.closest<HTMLButtonElement>('button')
+      : null
+    const name = target?.getAttribute('name')
+    if (!target || (name !== 'replace' && name !== 'replaceAll')) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    requestReplace(name === 'replaceAll' ? 'all' : 'next')
+  }
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape' && pendingReplace) {
+      event.preventDefault()
+      event.stopPropagation()
+      setPendingReplace(null)
+      return
+    }
+
+    if (
+      event.key !== 'Enter' ||
+      !(event.target instanceof HTMLInputElement) ||
+      event.target.name !== 'replace'
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    requestReplace('next')
+  }
+
+  const query = pendingReplace && editorRef.current
+    ? getSearchQuery(editorRef.current.state)
+    : null
+  const searchText = query?.search || '当前匹配内容'
+  const replacementText = query?.replace ? `「${query.replace}」` : '空内容'
+
   return (
-    <div className="json-body-cm-wrap">
+    <div
+      className="json-body-cm-wrap"
+      onClickCapture={handleSearchClick}
+      onKeyDownCapture={handleSearchKeyDown}
+    >
       <CodeMirror
         className="json-body-cm"
         value={value}
@@ -102,19 +169,49 @@ export function JsonBodyEditor({ value, onChange, placeholder }: Props) {
         theme="none"
         indentWithTab
         placeholder={placeholder}
-        basicSetup={{
-          lineNumbers: true,
-          foldGutter: true,
-          closeBrackets: true,
-          bracketMatching: false,
-          defaultKeymap: true,
-          history: true,
-          indentOnInput: true,
-          syntaxHighlighting: false,
-        }}
+        basicSetup={jsonBasicSetup}
         extensions={jsonExtensions}
         onChange={onChange}
+        onCreateEditor={(view) => {
+          editorRef.current = view
+        }}
       />
+      {pendingReplace && (
+        <div
+          role="dialog"
+          aria-label={pendingReplace === 'all' ? '确认全部替换' : '确认替换'}
+          className="search-replace-confirm"
+        >
+          <span className="search-replace-confirm__text">
+            {pendingReplace === 'all'
+              ? `将所有「${searchText}」替换为${replacementText}？`
+              : `将当前「${searchText}」替换为${replacementText}？`}
+          </span>
+          <span className="search-replace-confirm__actions">
+            <button
+              type="button"
+              className="search-replace-confirm__button"
+              onClick={() => setPendingReplace(null)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="search-replace-confirm__button"
+              onClick={() => {
+                const view = editorRef.current
+                if (!view) return
+                if (pendingReplace === 'all') replaceAll(view)
+                else replaceNext(view)
+                setPendingReplace(null)
+                view.focus()
+              }}
+            >
+              {pendingReplace === 'all' ? '全部替换' : '替换'}
+            </button>
+          </span>
+        </div>
+      )}
     </div>
   )
 }
