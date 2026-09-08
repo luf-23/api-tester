@@ -105,3 +105,5 @@ pnpm rebuild:native
 4. `pnpm test`
 
 Runner 为 `ubuntu-latest`；为避免在无 Electron 环境下的原生编译，`CI=true` 时桌面包会跳过 `postinstall` 里的 `electron-rebuild`。
+
+
