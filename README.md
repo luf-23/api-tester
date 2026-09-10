@@ -9,7 +9,7 @@
 - **产品臃肿**：协作、监控、Flows 等能力越堆越多，安装包变大、启动变慢，对大部分的场景来说负担过重。
 - **国内使用不便**：官方客户端依赖在线账号与同步，访问与更新常受网络环境影响；团队也更希望数据留在本机、不绑云。
 
-JadeAPI Studio 定位：核心流程（请求、响应、集合、环境变量）做扎实，其余能力（Mock、Postman 导入、简单 Runner 等）按需轻量提供，不追求做成平台型产品。
+API Tester 定位：核心流程（请求、响应、集合、环境变量）做扎实，其余能力（Mock、Postman 导入、简单 Runner 等）按需轻量提供，不追求做成平台型产品。
 
 技术栈：**Electron · React · TypeScript · Zustand**。仓库根包名为 `api-tester`，桌面应用为 `@api-tester/desktop`。
 
